@@ -19,6 +19,12 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   // OAuth Google — audiência esperada do ID token (opcional até configurar o app).
   GOOGLE_CLIENT_ID: z.string().optional(),
+  // Chave para cifrar tokens de marketplace em repouso (AES-256-GCM via scrypt).
+  TOKEN_ENCRYPTION_KEY: z.string().min(16),
+  // Integração Mercado Livre (opcional até configurar o app no painel do ML).
+  ML_CLIENT_ID: z.string().optional(),
+  ML_CLIENT_SECRET: z.string().optional(),
+  ML_REDIRECT_URI: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

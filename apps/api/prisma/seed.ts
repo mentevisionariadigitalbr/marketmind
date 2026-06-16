@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole } from '@prisma/client';
+import { MarketplaceCode, PrismaClient, UserRole } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
 import {
   PERMISSION_CATALOG,
@@ -81,8 +81,27 @@ async function seedDemoUser(): Promise<void> {
   console.log(`Seed: empresa "${company.name}" + usuário ${email} (senha Demo@12345)`);
 }
 
+const MARKETPLACES: { code: MarketplaceCode; name: string }[] = [
+  { code: 'MERCADO_LIVRE', name: 'Mercado Livre' },
+  { code: 'SHOPEE', name: 'Shopee' },
+  { code: 'AMAZON', name: 'Amazon' },
+  { code: 'MAGALU', name: 'Magalu' },
+];
+
+async function seedMarketplaces(): Promise<void> {
+  for (const m of MARKETPLACES) {
+    await prisma.marketplace.upsert({
+      where: { code: m.code },
+      create: { code: m.code, name: m.name },
+      update: { name: m.name },
+    });
+  }
+  console.log(`Seed: ${MARKETPLACES.length} marketplaces.`);
+}
+
 async function main(): Promise<void> {
   await seedRbac();
+  await seedMarketplaces();
   await seedDemoUser();
 }
 

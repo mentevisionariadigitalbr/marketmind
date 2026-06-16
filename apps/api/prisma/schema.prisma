@@ -40,8 +40,9 @@ model Company {
   createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  users User[]
-  roles Role[]
+  users               User[]
+  roles               Role[]
+  marketplaceAccounts MarketplaceAccount[]
 
   @@map("companies")
 }
@@ -163,4 +164,186 @@ model AuditLog {
   @@index([companyId, createdAt])
   @@index([userId])
   @@map("audit_logs")
+}
+
+// ---------------------------------------------------------------------------
+// Integração de Marketplace (Sprint 2) — doc 03 §2. Tokens criptografados em
+// repouso. Idempotência de sync por UNIQUE(marketplace_account_id, external_id).
+// ---------------------------------------------------------------------------
+
+enum MarketplaceCode {
+  MERCADO_LIVRE
+  SHOPEE
+  AMAZON
+  MAGALU
+}
+
+enum MarketplaceAccountStatus {
+  CONNECTED
+  DISCONNECTED
+  EXPIRED
+  ERROR
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+  UNKNOWN
+}
+
+/** Catálogo global de marketplaces suportados (não tenant-scoped). */
+model Marketplace {
+  id        String          @id @default(uuid()) @db.Uuid
+  code      MarketplaceCode @unique
+  name      String
+  createdAt DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  accounts MarketplaceAccount[]
+
+  @@map("marketplaces")
+}
+
+model MarketplaceAccount {
+  id              String                   @id @default(uuid()) @db.Uuid
+  companyId       String                   @map("company_id") @db.Uuid
+  marketplaceId   String                   @map("marketplace_id") @db.Uuid
+  externalUserId  String                   @map("external_user_id")
+  nickname        String?
+  accessTokenEnc  String                   @map("access_token_enc")
+  refreshTokenEnc String                   @map("refresh_token_enc")
+  tokenExpiresAt  DateTime                 @map("token_expires_at") @db.Timestamptz(6)
+  scope           String?
+  status          MarketplaceAccountStatus @default(CONNECTED)
+  lastSyncedAt    DateTime?                @map("last_synced_at") @db.Timestamptz(6)
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime                 @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company     Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  marketplace Marketplace @relation(fields: [marketplaceId], references: [id])
+  products    Product[]
+  orders      Order[]
+
+  @@unique([companyId, marketplaceId, externalUserId])
+  @@index([companyId])
+  @@map("marketplace_accounts")
+}
+
+model Product {
+  id                   String   @id @default(uuid()) @db.Uuid
+  companyId            String   @map("company_id") @db.Uuid
+  marketplaceAccountId String   @map("marketplace_account_id") @db.Uuid
+  externalId           String   @map("external_id") // ex.: MLB123...
+  sku                  String?
+  title                String
+  status               String
+  price                Decimal? @db.Decimal(14, 2)
+  availableQuantity    Int?     @map("available_quantity")
+  categoryId           String?  @map("category_id")
+  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account    MarketplaceAccount @relation(fields: [marketplaceAccountId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@unique([marketplaceAccountId, externalId])
+  @@index([companyId])
+  @@map("products")
+}
+
+model Customer {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @map("company_id") @db.Uuid
+  externalId String   @map("external_id")
+  nickname   String?
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  orders Order[]
+
+  @@unique([companyId, externalId])
+  @@index([companyId])
+  @@map("customers")
+}
+
+model Order {
+  id                   String      @id @default(uuid()) @db.Uuid
+  companyId            String      @map("company_id") @db.Uuid
+  marketplaceAccountId String      @map("marketplace_account_id") @db.Uuid
+  customerId           String?     @map("customer_id") @db.Uuid
+  externalId           String      @map("external_id")
+  status               OrderStatus @default(UNKNOWN)
+  currency             String      @default("BRL")
+  grossAmount          Decimal     @default(0) @map("gross_amount") @db.Decimal(14, 2)
+  freightAmount        Decimal     @default(0) @map("freight_amount") @db.Decimal(14, 2)
+  commissionAmount     Decimal     @default(0) @map("commission_amount") @db.Decimal(14, 2)
+  orderedAt            DateTime    @map("ordered_at") @db.Timestamptz(6)
+  createdAt            DateTime    @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime    @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  account  MarketplaceAccount @relation(fields: [marketplaceAccountId], references: [id], onDelete: Cascade)
+  customer Customer?          @relation(fields: [customerId], references: [id])
+  items    OrderItem[]
+
+  @@unique([marketplaceAccountId, externalId])
+  @@index([companyId, orderedAt])
+  @@map("orders")
+}
+
+model OrderItem {
+  id             String   @id @default(uuid()) @db.Uuid
+  companyId      String   @map("company_id") @db.Uuid
+  orderId        String   @map("order_id") @db.Uuid
+  productId      String?  @map("product_id") @db.Uuid
+  externalItemId String   @map("external_item_id")
+  sku            String?
+  title          String
+  quantity       Int
+  unitPrice      Decimal  @map("unit_price") @db.Decimal(14, 2)
+  itemCommission Decimal  @default(0) @map("item_commission") @db.Decimal(14, 2)
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([companyId])
+  @@index([orderId])
+  @@map("order_items")
+}
+
+/** Idempotência de webhooks: a mesma notificação não é processada duas vezes. */
+model WebhookEvent {
+  id          String    @id @default(uuid()) @db.Uuid
+  companyId   String?   @map("company_id") @db.Uuid
+  source      String // ex.: "mercado_livre"
+  topic       String
+  resource    String
+  dedupeKey   String    @unique @map("dedupe_key")
+  payload     Json
+  status      String    @default("RECEIVED") // RECEIVED | PROCESSED | FAILED
+  receivedAt  DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt DateTime? @map("processed_at") @db.Timestamptz(6)
+
+  @@index([companyId, receivedAt])
+  @@map("webhook_events")
+}
+
+/** Espelho persistente de jobs (observabilidade) — ADR-0003. */
+model Job {
+  id         String    @id @default(uuid()) @db.Uuid
+  queue      String
+  name       String
+  status     String    @default("QUEUED") // QUEUED | ACTIVE | COMPLETED | FAILED | DEAD
+  companyId  String?   @map("company_id") @db.Uuid
+  data       Json?
+  attempts   Int       @default(0)
+  lastError  String?   @map("last_error")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([queue, status])
+  @@index([companyId])
+  @@map("jobs")
 }

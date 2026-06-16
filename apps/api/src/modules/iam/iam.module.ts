@@ -68,5 +68,6 @@ import { GoogleTokenInfoVerifier } from './infrastructure/security/google-tokeni
       inject: [ConfigService],
     },
   ],
+  exports: [JwtAuthGuard, PermissionsGuard, TOKEN_SERVICE],
 })
 export class IamModule {}

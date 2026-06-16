@@ -5,10 +5,12 @@ import { ValidationPipe } from '@nestjs/common';
 
 import { validateEnv } from './config/env';
 import { PrismaModule } from './shared/prisma/prisma.module';
+import { CryptoModule } from './shared/crypto/crypto.module';
 import { AuditModule } from './shared/audit/audit.module';
 import { DomainExceptionFilter } from './shared/http/domain-exception.filter';
 import { TenantInterceptor } from './shared/tenant/tenant.interceptor';
 import { IamModule } from './modules/iam/iam.module';
+import { IntegrationModule } from './modules/integration/integration.module';
 import { HealthController } from './modules/health/health.controller';
 
 @Module({
@@ -19,8 +21,10 @@ import { HealthController } from './modules/health/health.controller';
       envFilePath: ['.env'],
     }),
     PrismaModule,
+    CryptoModule,
     AuditModule,
     IamModule,
+    IntegrationModule,
   ],
   controllers: [HealthController],
   providers: [

@@ -18,6 +18,7 @@ jobs:
       APP_DATABASE_URL: postgresql://marketmind_app:marketmind_app@localhost:5432/marketmind?schema=public
       JWT_ACCESS_SECRET: ci-access-secret-ci-access-secret
       JWT_REFRESH_SECRET: ci-refresh-secret-ci-refresh-secret
+      TOKEN_ENCRYPTION_KEY: ci-token-encryption-key-ci-token-encryption-key
 
     services:
       postgres:
@@ -61,11 +62,11 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Unit tests
-        run: pnpm --filter @marketmind/api test
-
-      - name: Integration tests (RLS / RBAC / audit)
-        run: pnpm --filter @marketmind/api test:int
-
-      - name: Build (api + web)
+      - name: Build (sdk + api + web)
         run: pnpm build
+
+      - name: Unit tests
+        run: pnpm --filter @marketmind/sdk-mercadolivre test && pnpm --filter @marketmind/api test
+
+      - name: Integration tests (RLS / RBAC / audit / ingestion)
+        run: pnpm --filter @marketmind/api test:int
