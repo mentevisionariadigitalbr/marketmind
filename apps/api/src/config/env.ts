@@ -17,6 +17,8 @@ const envSchema = z.object({
   JWT_REFRESH_TTL: z.string().default('7d'),
   API_PORT: z.coerce.number().int().positive().default(3333),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
+  // OAuth Google — audiência esperada do ID token (opcional até configurar o app).
+  GOOGLE_CLIENT_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

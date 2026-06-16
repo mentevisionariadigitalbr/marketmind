@@ -16,6 +16,7 @@ import { RefreshTokenUseCase } from './application/use-cases/refresh-token.use-c
 import { GetMeUseCase } from './application/use-cases/get-me.use-case';
 import { LogoutUseCase } from './application/use-cases/logout.use-case';
 import { ListRolesUseCase } from './application/use-cases/list-roles.use-case';
+import { GoogleSignInUseCase } from './application/use-cases/google-sign-in.use-case';
 import { IssueTokensService } from './application/services/issue-tokens.service';
 import { REFRESH_TTL_MS } from './application/config-tokens';
 
@@ -26,6 +27,7 @@ import { PASSWORD_HASHER } from './domain/ports/password-hasher.port';
 import { TOKEN_SERVICE } from './domain/ports/token-service.port';
 import { UNIT_OF_WORK } from './domain/ports/unit-of-work.port';
 import { RBAC_REPOSITORY } from './domain/ports/rbac.repository';
+import { GOOGLE_VERIFIER } from './domain/ports/google-verifier.port';
 
 import { PrismaCompanyRepository } from './infrastructure/persistence/prisma-company.repository';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma-user.repository';
@@ -33,6 +35,7 @@ import { PrismaRefreshTokenRepository } from './infrastructure/persistence/prism
 import { PrismaRbacRepository } from './infrastructure/persistence/prisma-rbac.repository';
 import { Argon2PasswordHasher } from './infrastructure/security/argon2-password-hasher';
 import { JwtTokenService } from './infrastructure/security/jwt-token.service';
+import { GoogleTokenInfoVerifier } from './infrastructure/security/google-tokeninfo-verifier';
 
 @Module({
   imports: [JwtModule.register({})],
@@ -44,6 +47,7 @@ import { JwtTokenService } from './infrastructure/security/jwt-token.service';
     GetMeUseCase,
     LogoutUseCase,
     ListRolesUseCase,
+    GoogleSignInUseCase,
     IssueTokensService,
     JwtAuthGuard,
     PermissionsGuard,
@@ -55,6 +59,7 @@ import { JwtTokenService } from './infrastructure/security/jwt-token.service';
     { provide: RBAC_REPOSITORY, useClass: PrismaRbacRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: TOKEN_SERVICE, useClass: JwtTokenService },
+    { provide: GOOGLE_VERIFIER, useClass: GoogleTokenInfoVerifier },
     { provide: UNIT_OF_WORK, useExisting: PrismaService },
     {
       provide: REFRESH_TTL_MS,

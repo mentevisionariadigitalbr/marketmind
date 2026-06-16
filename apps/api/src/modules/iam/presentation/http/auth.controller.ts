@@ -13,9 +13,11 @@ import { SignInUseCase } from '../../application/use-cases/sign-in.use-case';
 import { RefreshTokenUseCase } from '../../application/use-cases/refresh-token.use-case';
 import { GetMeUseCase } from '../../application/use-cases/get-me.use-case';
 import { LogoutUseCase } from '../../application/use-cases/logout.use-case';
+import { GoogleSignInUseCase } from '../../application/use-cases/google-sign-in.use-case';
 import { SignUpDto } from './dto/sign-up.dto';
 import { SignInDto } from './dto/sign-in.dto';
 import { RefreshDto } from './dto/refresh.dto';
+import { GoogleAuthDto } from './dto/google-auth.dto';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { AuditAction } from '../../../../shared/audit/audit-action.decorator';
@@ -29,6 +31,7 @@ export class AuthController {
     private readonly refresh: RefreshTokenUseCase,
     private readonly getMe: GetMeUseCase,
     private readonly logout: LogoutUseCase,
+    private readonly googleSignIn: GoogleSignInUseCase,
   ) {}
 
   @Post('signup')
@@ -50,6 +53,13 @@ export class AuthController {
   @AuditAction('auth.refresh')
   async refreshToken(@Body() dto: RefreshDto, @Req() req: Request) {
     return this.refresh.execute({ refreshToken: dto.refreshToken, ...this.context(req) });
+  }
+
+  @Post('google')
+  @HttpCode(200)
+  @AuditAction('auth.google')
+  async google(@Body() dto: GoogleAuthDto, @Req() req: Request) {
+    return this.googleSignIn.execute({ idToken: dto.idToken, ...this.context(req) });
   }
 
   @Post('logout')
