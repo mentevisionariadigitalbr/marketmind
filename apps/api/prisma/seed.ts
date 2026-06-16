@@ -2,7 +2,6 @@ import { PrismaClient, UserRole } from '@prisma/client';
 import { hash } from '@node-rs/argon2';
 import {
   PERMISSION_CATALOG,
-  SYSTEM_ROLES,
   SYSTEM_ROLE_DESCRIPTIONS,
   SYSTEM_ROLE_PERMISSIONS,
   SystemRoleName,
