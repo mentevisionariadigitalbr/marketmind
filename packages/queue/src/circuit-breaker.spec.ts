@@ -2,7 +2,7 @@ import { CircuitBreaker, CircuitOpenError } from './circuit-breaker';
 
 describe('CircuitBreaker', () => {
   it('abre após o limite de falhas e bloqueia chamadas', async () => {
-    let now = 0;
+    const now = 0;
     const breaker = new CircuitBreaker({ failureThreshold: 3, cooldownMs: 1000, now: () => now });
     const boom = () => Promise.reject(new Error('fail'));
 

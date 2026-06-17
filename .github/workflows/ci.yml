@@ -19,6 +19,7 @@ jobs:
       JWT_ACCESS_SECRET: ci-access-secret-ci-access-secret
       JWT_REFRESH_SECRET: ci-refresh-secret-ci-refresh-secret
       TOKEN_ENCRYPTION_KEY: ci-token-encryption-key-ci-token-encryption-key
+      REDIS_URL: redis://localhost:6379
 
     services:
       postgres:
@@ -31,6 +32,15 @@ jobs:
           - 5432:5432
         options: >-
           --health-cmd "pg_isready -U marketmind"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 15
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 15
@@ -66,7 +76,14 @@ jobs:
         run: pnpm build
 
       - name: Unit tests
-        run: pnpm --filter @marketmind/sdk-mercadolivre test && pnpm --filter @marketmind/api test
+        run: |
+          pnpm --filter @marketmind/queue test
+          pnpm --filter @marketmind/sdk-mercadolivre test
+          pnpm --filter @marketmind/workers test
+          pnpm --filter @marketmind/api test
 
-      - name: Integration tests (RLS / RBAC / audit / ingestion)
+      - name: Integration tests — API (RLS / RBAC / audit / ingestion)
         run: pnpm --filter @marketmind/api test:int
+
+      - name: Integration tests — Workers (BullMQ roundtrip / idempotency / DLQ)
+        run: pnpm --filter @marketmind/workers test:int

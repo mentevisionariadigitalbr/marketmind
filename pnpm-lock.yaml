@@ -29,6 +29,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@marketmind/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
       '@marketmind/sdk-mercadolivre':
         specifier: workspace:*
         version: link:../../packages/sdk-mercadolivre
@@ -145,6 +148,34 @@ importers:
       tailwindcss:
         specifier: ^3.4.17
         version: 3.4.19
+      typescript:
+        specifier: ^5.7.2
+        version: 5.7.2
+
+  apps/workers:
+    dependencies:
+      '@marketmind/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      reflect-metadata:
+        specifier: ^0.2.2
+        version: 0.2.2
+    devDependencies:
+      '@types/jest':
+        specifier: ^29.5.14
+        version: 29.5.14
+      '@types/node':
+        specifier: ^22.10.5
+        version: 22.19.21
+      jest:
+        specifier: ^29.7.0
+        version: 29.7.0(@types/node@22.19.21)(ts-node@10.9.2(@types/node@22.19.21)(typescript@5.7.2))
+      ts-jest:
+        specifier: ^29.2.5
+        version: 29.4.11(@babel/core@7.29.7)(@jest/transform@29.7.0)(@jest/types@29.6.3)(babel-jest@29.7.0(@babel/core@7.29.7))(jest-util@29.7.0)(jest@29.7.0(@types/node@22.19.21))(typescript@5.7.2)
+      ts-node:
+        specifier: ^10.9.2
+        version: 10.9.2(@types/node@22.19.21)(typescript@5.7.2)
       typescript:
         specifier: ^5.7.2
         version: 5.7.2

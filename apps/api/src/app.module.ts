@@ -6,6 +6,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { validateEnv } from './config/env';
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { CryptoModule } from './shared/crypto/crypto.module';
+import { QueueModule } from './shared/queue/queue.module';
 import { AuditModule } from './shared/audit/audit.module';
 import { DomainExceptionFilter } from './shared/http/domain-exception.filter';
 import { TenantInterceptor } from './shared/tenant/tenant.interceptor';
@@ -22,6 +23,7 @@ import { HealthController } from './modules/health/health.controller';
     }),
     PrismaModule,
     CryptoModule,
+    QueueModule,
     AuditModule,
     IamModule,
     IntegrationModule,

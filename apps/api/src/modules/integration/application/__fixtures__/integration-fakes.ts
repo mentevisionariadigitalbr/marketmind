@@ -33,6 +33,12 @@ export class FakeMarketplaceAccountRepository implements MarketplaceAccountRepos
   async findById(id: string): Promise<MarketplaceAccount | null> {
     return this.accounts.find((a) => a.id === id) ?? null;
   }
+  async findByExternalUserId(externalUserId: string): Promise<MarketplaceAccount[]> {
+    return this.accounts.filter((a) => a.externalUserId === externalUserId);
+  }
+  async listConnected(): Promise<MarketplaceAccount[]> {
+    return this.accounts.filter((a) => a.status === 'CONNECTED');
+  }
   async upsert(data: UpsertAccountData): Promise<MarketplaceAccount> {
     this.upsertCalls += 1;
     const existing = this.accounts.find(

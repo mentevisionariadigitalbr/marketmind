@@ -38,6 +38,16 @@ export class PrismaMarketplaceAccountRepository implements MarketplaceAccountRep
     return row ? this.toEntity(row) : null;
   }
 
+  async findByExternalUserId(externalUserId: string): Promise<MarketplaceAccount[]> {
+    const rows = await this.prisma.db.marketplaceAccount.findMany({ where: { externalUserId } });
+    return rows.map((r) => this.toEntity(r));
+  }
+
+  async listConnected(): Promise<MarketplaceAccount[]> {
+    const rows = await this.prisma.db.marketplaceAccount.findMany({ where: { status: 'CONNECTED' } });
+    return rows.map((r) => this.toEntity(r));
+  }
+
   async upsert(data: UpsertAccountData): Promise<MarketplaceAccount> {
     const row = await this.prisma.db.marketplaceAccount.upsert({
       where: {

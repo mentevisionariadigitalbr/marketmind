@@ -20,6 +20,9 @@ export interface BullMqOptions {
   defaultConcurrency?: number;
 }
 
+/** BullMQ não aceita ':' em custom job ids — normaliza mantendo estabilidade. */
+const sanitizeJobId = (id: string): string => id.replace(/:/g, '_');
+
 const toIncoming = (job: Job): IncomingJob => ({
   id: String(job.id),
   name: job.name,
@@ -91,12 +94,11 @@ export class BullMqQueueProvider implements QueueProvider {
       if (!job) return;
       const maxAttempts = job.opts.attempts ?? MAX_ATTEMPTS;
       const final = job.attemptsMade >= maxAttempts;
+      void lifecycle?.onFailed?.(toIncoming(job), err, !final);
       if (final) {
         void this.routeToDlq(queue, job, err).then(() =>
           lifecycle?.onDeadLetter?.(toIncoming(job), err),
         );
-      } else {
-        void lifecycle?.onFailed?.(toIncoming(job), err, true);
       }
     });
     worker.on('error', (err) => {
@@ -116,16 +118,15 @@ export class BullMqQueueProvider implements QueueProvider {
 
   dispatcher(): JobDispatcher {
     if (!this.dispatcherInstance) {
-      const provider = this;
       this.dispatcherInstance = {
-        async dispatch<T>(
+        dispatch: async <T>(
           queue: QueueName,
           name: string,
           payload: T,
           opts?: DispatchOptions,
-        ): Promise<DispatchResult> {
-          const q = provider.queue(queue);
-          const id = opts?.jobId;
+        ): Promise<DispatchResult> => {
+          const q = this.queue(queue);
+          const id = opts?.jobId ? sanitizeJobId(opts.jobId) : undefined;
           if (id) {
             const existing = await q.getJob(id);
             if (existing) return { id, deduped: true };
@@ -156,7 +157,7 @@ export class BullMqQueueProvider implements QueueProvider {
   ): Promise<void> {
     await this.queue(queue).add(name, payload, {
       repeat: { pattern: cron },
-      jobId: opts?.jobId,
+      jobId: opts?.jobId ? sanitizeJobId(opts.jobId) : undefined,
       attempts: opts?.attempts ?? MAX_ATTEMPTS,
       backoff: { type: 'custom' },
     });

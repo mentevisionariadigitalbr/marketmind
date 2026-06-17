@@ -28,5 +28,61 @@ services:
       timeout: 5s
       retries: 10
 
+  # Worker assíncrono (consome as filas BullMQ). Roda via ts-node em dev; em
+  # produção, empacotar com um Dockerfile dedicado (infra/docker/workers.Dockerfile).
+  workers:
+    image: node:20-alpine
+    container_name: marketmind-workers
+    working_dir: /app
+    profiles: ["full"]
+    command: >-
+      sh -c "corepack enable &&
+             corepack pnpm install --frozen-lockfile &&
+             corepack pnpm --filter @marketmind/api exec prisma generate &&
+             corepack pnpm --filter @marketmind/queue build &&
+             corepack pnpm --filter @marketmind/sdk-mercadolivre build &&
+             corepack pnpm --filter @marketmind/workers start"
+    environment:
+      WORKERS_ROLE: worker
+      DATABASE_URL: postgresql://marketmind:marketmind@postgres:5432/marketmind?schema=public
+      APP_DATABASE_URL: postgresql://marketmind:marketmind@postgres:5432/marketmind?schema=public
+      REDIS_URL: redis://redis:6379
+      TOKEN_ENCRYPTION_KEY: dev-token-encryption-key-change-me-please
+      WORKERS_HEALTH_PORT: "3334"
+    ports:
+      - "3334:3334"
+    volumes:
+      - ../:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Scheduler (registra os jobs repetíveis). Mesma imagem, papel diferente.
+  scheduler:
+    image: node:20-alpine
+    container_name: marketmind-scheduler
+    working_dir: /app
+    profiles: ["full"]
+    command: >-
+      sh -c "corepack enable &&
+             corepack pnpm install --frozen-lockfile &&
+             corepack pnpm --filter @marketmind/queue build &&
+             corepack pnpm --filter @marketmind/workers start"
+    environment:
+      WORKERS_ROLE: scheduler
+      APP_DATABASE_URL: postgresql://marketmind:marketmind@postgres:5432/marketmind?schema=public
+      REDIS_URL: redis://redis:6379
+      TOKEN_ENCRYPTION_KEY: dev-token-encryption-key-change-me-please
+      WORKERS_HEALTH_PORT: "3335"
+    volumes:
+      - ../:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   marketmind-pgdata:
