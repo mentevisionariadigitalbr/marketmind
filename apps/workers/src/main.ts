@@ -5,7 +5,10 @@ import { makeJobLifecycle } from './observability/job-mirror';
 import { makeWebhookProcessor } from './processors/webhook-process.processor';
 import { makeOrderFetchProcessor } from './processors/order-fetch.processor';
 import { makeCatalogSyncProcessor } from './processors/catalog-sync.processor';
+import { makeItemSyncProcessor } from './processors/item-sync.processor';
+import { makeCategorySyncProcessor } from './processors/category-sync.processor';
 import { makeAccountRefreshProcessor } from './processors/account-refresh.processor';
+import { CATALOG_METRIC } from './observability/catalog-metrics';
 import { startHealthServer } from './health/health-server';
 import { setupSchedulers } from './schedulers/schedulers';
 
@@ -48,9 +51,70 @@ async function bootstrap(): Promise<void> {
     );
     c.provider.registerWorker(
       QUEUES.CATALOG_SYNC,
-      makeCatalogSyncProcessor({ logger: c.logger }),
+      makeCatalogSyncProcessor({
+        accounts: c.accounts,
+        syncProducts: c.syncProducts,
+        dispatcher,
+        withTenant: c.withTenant,
+        metrics: c.metrics,
+        logger: c.logger,
+      }),
       lc(QUEUES.CATALOG_SYNC),
       { concurrency: 5 },
+    );
+    c.provider.registerWorker(
+      QUEUES.VARIATION_SYNC,
+      makeItemSyncProcessor({
+        queue: QUEUES.VARIATION_SYNC,
+        accounts: c.accounts,
+        runner: c.syncVariations,
+        withTenant: c.withTenant,
+        metrics: c.metrics,
+        metricName: CATALOG_METRIC.PRODUCTS_SYNCED,
+        logger: c.logger,
+      }),
+      lc(QUEUES.VARIATION_SYNC),
+      { concurrency: 5 },
+    );
+    c.provider.registerWorker(
+      QUEUES.INVENTORY_SYNC,
+      makeItemSyncProcessor({
+        queue: QUEUES.INVENTORY_SYNC,
+        accounts: c.accounts,
+        runner: c.syncInventory,
+        withTenant: c.withTenant,
+        metrics: c.metrics,
+        metricName: CATALOG_METRIC.INVENTORY_UPDATES,
+        logger: c.logger,
+      }),
+      lc(QUEUES.INVENTORY_SYNC),
+      { concurrency: 5 },
+    );
+    c.provider.registerWorker(
+      QUEUES.PRICE_SYNC,
+      makeItemSyncProcessor({
+        queue: QUEUES.PRICE_SYNC,
+        accounts: c.accounts,
+        runner: c.syncPrices,
+        withTenant: c.withTenant,
+        metrics: c.metrics,
+        metricName: CATALOG_METRIC.PRICE_UPDATES,
+        logger: c.logger,
+      }),
+      lc(QUEUES.PRICE_SYNC),
+      { concurrency: 5 },
+    );
+    c.provider.registerWorker(
+      QUEUES.CATEGORY_SYNC,
+      makeCategorySyncProcessor({
+        accounts: c.accounts,
+        runner: c.syncCategories,
+        withTenant: c.withTenant,
+        metrics: c.metrics,
+        logger: c.logger,
+      }),
+      lc(QUEUES.CATEGORY_SYNC),
+      { concurrency: 3 },
     );
     c.provider.registerWorker(
       QUEUES.ACCOUNT_REFRESH,

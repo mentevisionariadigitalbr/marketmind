@@ -17,9 +17,17 @@ import {
   MercadoLivreApi,
   MercadoLivreApiFactory,
   MercadoLivreOAuthPort,
+  MlRawCategory,
+  MlRawItem,
   MlRawOrder,
   MlTokenSet,
 } from '../../domain/ports/mercado-livre.port';
+import {
+  CatalogSyncRepository,
+  NormalizedCategory,
+  NormalizedProduct,
+  UpsertProductResult,
+} from '../../domain/ports/catalog-sync.repository';
 
 export class FakeMarketplaceAccountRepository implements MarketplaceAccountRepository {
   accounts: MarketplaceAccount[] = [];
@@ -102,6 +110,9 @@ export class FakeMlOAuth implements MercadoLivreOAuthPort {
 export class FakeMlApiFactory implements MercadoLivreApiFactory {
   lastToken?: string;
   orders: MlRawOrder[] = [];
+  items: MlRawItem[] = [];
+  itemsTotal?: number;
+  category?: MlRawCategory;
   me = { id: 555, nickname: 'LOJA' };
 
   create(accessToken: string): MercadoLivreApi {
@@ -112,8 +123,101 @@ export class FakeMlApiFactory implements MercadoLivreApiFactory {
         results: this.orders,
         paging: { total: this.orders.length, offset: 0, limit: 50 },
       }),
+      getItemIds: async (params) => ({
+        results: this.items.map((i) => i.id),
+        paging: {
+          total: this.itemsTotal ?? this.items.length,
+          offset: params.offset ?? 0,
+          limit: params.limit ?? 20,
+        },
+      }),
+      getItems: async (ids) => this.items.filter((i) => ids.includes(i.id)),
+      getItem: async (itemId) => {
+        const found = this.items.find((i) => i.id === itemId);
+        if (!found) throw new Error(`item ${itemId} não encontrado no fake`);
+        return found;
+      },
+      getCategory: async () =>
+        this.category ?? { id: 'MLB1', name: 'Cat', path_from_root: [{ id: 'MLB1', name: 'Cat' }] },
     };
   }
+}
+
+export class FakeCatalogSyncRepository implements CatalogSyncRepository {
+  products: NormalizedProduct[] = [];
+  categories: NormalizedCategory[] = [];
+  priceUpdates: Array<{ externalId: string; price: number | null }> = [];
+
+  async upsertProduct(product: NormalizedProduct): Promise<UpsertProductResult> {
+    const existing = this.products.find((p) => p.externalId === product.externalId);
+    if (existing) {
+      const priceChanged = existing.price !== product.price;
+      Object.assign(existing, product);
+      return { created: false, priceChanged, variantCount: product.variants.length };
+    }
+    this.products.push(product);
+    return { created: true, priceChanged: product.price != null, variantCount: product.variants.length };
+  }
+
+  async updateVariantStockAndPrice(input: {
+    companyId: string;
+    marketplaceAccountId: string;
+    externalId: string;
+    price: number | null;
+    availableQuantity: number;
+  }): Promise<{ found: boolean; priceChanged: boolean }> {
+    const product = this.products.find((p) => p.externalId === input.externalId);
+    if (!product) return { found: false, priceChanged: false };
+    const priceChanged = product.price !== input.price;
+    product.price = input.price;
+    product.availableQuantity = input.availableQuantity;
+    this.priceUpdates.push({ externalId: input.externalId, price: input.price });
+    return { found: true, priceChanged };
+  }
+
+  async upsertCategory(category: NormalizedCategory): Promise<void> {
+    const existing = this.categories.find((c) => c.externalId === category.externalId);
+    if (existing) Object.assign(existing, category);
+    else this.categories.push(category);
+  }
+}
+
+export function sampleItem(id: string, overrides: Partial<MlRawItem> = {}): MlRawItem {
+  return {
+    id,
+    title: `Produto ${id}`,
+    price: 100,
+    currency_id: 'BRL',
+    available_quantity: 10,
+    status: 'active',
+    category_id: 'MLB1',
+    seller_sku: `SKU-${id}`,
+    attributes: [{ id: 'GTIN', value_name: '7891234567890' }],
+    pictures: [{ id: 'pic1', secure_url: 'https://img/1.jpg' }],
+    variations: [
+      {
+        id: 1,
+        price: 100,
+        available_quantity: 6,
+        seller_sku: `SKU-${id}-P`,
+        attribute_combinations: [
+          { id: 'COLOR', value_name: 'Azul' },
+          { id: 'SIZE', value_name: 'P' },
+        ],
+      },
+      {
+        id: 2,
+        price: 100,
+        available_quantity: 4,
+        seller_sku: `SKU-${id}-M`,
+        attribute_combinations: [
+          { id: 'COLOR', value_name: 'Azul' },
+          { id: 'SIZE', value_name: 'M' },
+        ],
+      },
+    ],
+    ...overrides,
+  };
 }
 
 export function sampleOrder(id: number, overrides: Partial<MlRawOrder> = {}): MlRawOrder {

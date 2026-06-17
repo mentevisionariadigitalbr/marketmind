@@ -5,13 +5,26 @@ import { runWithTenant } from '../../../api/src/shared/tenant/tenant-context';
 import { AesGcmTokenCipher } from '../../../api/src/shared/crypto/aes-gcm-token-cipher';
 import { PrismaMarketplaceAccountRepository } from '../../../api/src/modules/integration/infrastructure/persistence/prisma-marketplace-account.repository';
 import { PrismaOrderSyncRepository } from '../../../api/src/modules/integration/infrastructure/persistence/prisma-order-sync.repository';
+import { PrismaCatalogSyncRepository } from '../../../api/src/modules/integration/infrastructure/persistence/prisma-catalog-sync.repository';
 import { MercadoLivreOAuthAdapter } from '../../../api/src/modules/integration/infrastructure/mercado-livre/ml-oauth.adapter';
 import { MercadoLivreApiFactoryAdapter } from '../../../api/src/modules/integration/infrastructure/mercado-livre/ml-api.factory';
 import { MercadoLivreSession } from '../../../api/src/modules/integration/application/services/mercado-livre-session.service';
 import { SyncOrdersUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-orders.use-case';
+import { SyncProductsUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-products.use-case';
+import { SyncVariationsUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-variations.use-case';
+import { SyncInventoryUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-inventory.use-case';
+import { SyncPricesUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-prices.use-case';
+import { SyncCategoriesUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-categories.use-case';
 
 import { JobStore, JobRecord } from '../jobs/job-store';
-import { AccountLookup, SessionRefresher, WithTenant } from '../processors/ports';
+import {
+  AccountLookup,
+  CategorySyncRunner,
+  ItemSyncRunner,
+  ProductSyncRunner,
+  SessionRefresher,
+  WithTenant,
+} from '../processors/ports';
 
 class PrismaJobStore implements JobStore {
   constructor(private readonly prisma: PrismaService) {}
@@ -50,6 +63,11 @@ export interface Container {
   store: JobStore;
   accounts: AccountLookup;
   syncOrders: { execute: SyncOrdersUseCase['execute'] };
+  syncProducts: ProductSyncRunner;
+  syncVariations: ItemSyncRunner;
+  syncInventory: ItemSyncRunner;
+  syncPrices: ItemSyncRunner;
+  syncCategories: CategorySyncRunner;
   session: SessionRefresher;
   withTenant: WithTenant;
 }
@@ -68,8 +86,14 @@ export function buildContainer(): Container {
   const apiFactory = new MercadoLivreApiFactoryAdapter();
   const accounts = new PrismaMarketplaceAccountRepository(prisma);
   const orderSync = new PrismaOrderSyncRepository(prisma);
+  const catalogSync = new PrismaCatalogSyncRepository(prisma);
   const mlSession = new MercadoLivreSession(cipher, oauth, accounts, apiFactory);
   const syncOrders = new SyncOrdersUseCase(accounts, mlSession, orderSync);
+  const syncProducts = new SyncProductsUseCase(accounts, mlSession, catalogSync);
+  const syncVariations = new SyncVariationsUseCase(accounts, mlSession, catalogSync);
+  const syncInventory = new SyncInventoryUseCase(accounts, mlSession, catalogSync);
+  const syncPrices = new SyncPricesUseCase(accounts, mlSession, catalogSync);
+  const syncCategories = new SyncCategoriesUseCase(accounts, mlSession, catalogSync);
 
   const provider = new BullMqQueueProvider({
     redisUrl: process.env.REDIS_URL ?? 'redis://localhost:6380',
@@ -97,6 +121,11 @@ export function buildContainer(): Container {
     store: new PrismaJobStore(prisma),
     accounts,
     syncOrders,
+    syncProducts,
+    syncVariations,
+    syncInventory,
+    syncPrices,
+    syncCategories,
     session,
     withTenant,
   };

@@ -9,11 +9,17 @@ import { IntegrationController } from './presentation/http/integration.controlle
 import { GetMercadoLivreAuthUrlUseCase } from './application/use-cases/get-ml-auth-url.use-case';
 import { ConnectMercadoLivreUseCase } from './application/use-cases/connect-mercado-livre.use-case';
 import { SyncOrdersUseCase } from './application/use-cases/sync-orders.use-case';
+import { SyncProductsUseCase } from './application/use-cases/sync-products.use-case';
+import { SyncVariationsUseCase } from './application/use-cases/sync-variations.use-case';
+import { SyncInventoryUseCase } from './application/use-cases/sync-inventory.use-case';
+import { SyncPricesUseCase } from './application/use-cases/sync-prices.use-case';
+import { SyncCategoriesUseCase } from './application/use-cases/sync-categories.use-case';
 import { HandleMercadoLivreWebhookUseCase } from './application/use-cases/handle-ml-webhook.use-case';
 import { MercadoLivreSession } from './application/services/mercado-livre-session.service';
 
 import { MARKETPLACE_ACCOUNT_REPOSITORY } from './domain/ports/marketplace-account.repository';
 import { ORDER_SYNC_REPOSITORY } from './domain/ports/order-sync.repository';
+import { CATALOG_SYNC_REPOSITORY } from './domain/ports/catalog-sync.repository';
 import { WEBHOOK_EVENT_REPOSITORY } from './domain/ports/webhook-event.repository';
 import {
   MERCADO_LIVRE_API_FACTORY,
@@ -22,6 +28,7 @@ import {
 
 import { PrismaMarketplaceAccountRepository } from './infrastructure/persistence/prisma-marketplace-account.repository';
 import { PrismaOrderSyncRepository } from './infrastructure/persistence/prisma-order-sync.repository';
+import { PrismaCatalogSyncRepository } from './infrastructure/persistence/prisma-catalog-sync.repository';
 import { PrismaWebhookEventRepository } from './infrastructure/persistence/prisma-webhook-event.repository';
 import { MercadoLivreOAuthAdapter } from './infrastructure/mercado-livre/ml-oauth.adapter';
 import { MercadoLivreApiFactoryAdapter } from './infrastructure/mercado-livre/ml-api.factory';
@@ -34,6 +41,11 @@ import { OAuthStateService } from './infrastructure/mercado-livre/oauth-state.se
     GetMercadoLivreAuthUrlUseCase,
     ConnectMercadoLivreUseCase,
     SyncOrdersUseCase,
+    SyncProductsUseCase,
+    SyncVariationsUseCase,
+    SyncInventoryUseCase,
+    SyncPricesUseCase,
+    SyncCategoriesUseCase,
     HandleMercadoLivreWebhookUseCase,
     MercadoLivreSession,
     OAuthStateService,
@@ -41,6 +53,7 @@ import { OAuthStateService } from './infrastructure/mercado-livre/oauth-state.se
     // Ports -> Adapters
     { provide: MARKETPLACE_ACCOUNT_REPOSITORY, useClass: PrismaMarketplaceAccountRepository },
     { provide: ORDER_SYNC_REPOSITORY, useClass: PrismaOrderSyncRepository },
+    { provide: CATALOG_SYNC_REPOSITORY, useClass: PrismaCatalogSyncRepository },
     { provide: WEBHOOK_EVENT_REPOSITORY, useClass: PrismaWebhookEventRepository },
     { provide: MERCADO_LIVRE_API_FACTORY, useClass: MercadoLivreApiFactoryAdapter },
     {

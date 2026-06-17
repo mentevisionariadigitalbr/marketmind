@@ -1,4 +1,4 @@
-import { HttpClient, FetchLike } from './http/http-client';
+import { HttpClient, FetchLike, CircuitBreakerLike } from './http/http-client';
 import { UsersResource } from './resources/users';
 import { OrdersResource } from './resources/orders';
 import { ItemsResource } from './resources/items';
@@ -13,6 +13,8 @@ export interface MercadoLivreClientOptions {
   fetch?: FetchLike;
   maxRetries?: number;
   minIntervalMs?: number;
+  /** Circuit breaker compartilhado para a API do ML. */
+  circuitBreaker?: CircuitBreakerLike;
   /** HttpClient pré-construído (testes). */
   http?: HttpClient;
 }
@@ -39,6 +41,7 @@ export class MercadoLivreClient {
         fetch: opts.fetch,
         maxRetries: opts.maxRetries,
         minIntervalMs: opts.minIntervalMs,
+        circuitBreaker: opts.circuitBreaker,
       });
 
     const token = () => this.accessToken;

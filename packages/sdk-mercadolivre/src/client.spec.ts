@@ -78,6 +78,13 @@ describe('MercadoLivreClient', () => {
     expect(calls[1].url).toContain('status=active');
   });
 
+  it('items.getMany monta o multiget por ids', async () => {
+    const { calls, http } = recorder([]);
+    const client = new MercadoLivreClient({ accessToken: 'AT', http });
+    await client.items.getMany(['MLB1', 'MLB2']);
+    expect(calls[0].url).toContain('/items?ids=MLB1%2CMLB2');
+  });
+
   it('categories.get e questions.search', async () => {
     const { calls, http } = recorder({ id: 'MLB1', name: 'Cat' });
     const client = new MercadoLivreClient({ accessToken: 'AT', http });

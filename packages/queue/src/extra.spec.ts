@@ -7,7 +7,8 @@ describe('queue utilities', () => {
   it('dlqName e ALL_QUEUES', () => {
     expect(dlqName(QUEUES.ORDER_FETCH)).toBe('ml.order.fetch.dlq');
     expect(ALL_QUEUES).toContain('ml.webhook.process');
-    expect(ALL_QUEUES).toHaveLength(4);
+    expect(ALL_QUEUES).toContain('ml.catalog.sync');
+    expect(ALL_QUEUES).toHaveLength(8);
   });
 
   it('logger cobre todos os níveis', () => {

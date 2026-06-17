@@ -16,6 +16,15 @@ export interface FetchInit {
 
 export type FetchLike = (url: string, init?: FetchInit) => Promise<FetchResponse>;
 
+/**
+ * Porta mínima de circuit breaker. O SDK não depende de `@marketmind/queue`:
+ * qualquer implementação com `execute()` serve (o CircuitBreaker do pacote de
+ * filas é estruturalmente compatível).
+ */
+export interface CircuitBreakerLike {
+  execute<T>(fn: () => Promise<T>): Promise<T>;
+}
+
 export interface HttpClientOptions {
   baseUrl: string;
   /** Injetável para testes; default: `globalThis.fetch`. */
@@ -26,6 +35,8 @@ export interface HttpClientOptions {
   baseDelayMs?: number;
   /** Espaçamento mínimo entre requisições (rate-limit simples), em ms. Default: 0. */
   minIntervalMs?: number;
+  /** Circuit breaker para a API externa (protege contra cascata de falhas). */
+  circuitBreaker?: CircuitBreakerLike;
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
 }
@@ -54,6 +65,7 @@ export class HttpClient {
   private readonly minIntervalMs: number;
   private readonly now: () => number;
   private readonly sleep: (ms: number) => Promise<void>;
+  private readonly breaker?: CircuitBreakerLike;
   private nextSlot = 0;
 
   constructor(opts: HttpClientOptions) {
@@ -64,12 +76,21 @@ export class HttpClient {
     this.minIntervalMs = opts.minIntervalMs ?? 0;
     this.now = opts.now ?? (() => Date.now());
     this.sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
+    this.breaker = opts.circuitBreaker;
     if (!this.fetchFn) {
       throw new Error('HttpClient: nenhuma implementação de fetch disponível.');
     }
   }
 
+  /** Executa a requisição (com retry) protegida pelo circuit breaker, se houver. */
   async request<T>(opts: RequestOptions): Promise<T> {
+    if (this.breaker) {
+      return this.breaker.execute(() => this.doRequest<T>(opts));
+    }
+    return this.doRequest<T>(opts);
+  }
+
+  private async doRequest<T>(opts: RequestOptions): Promise<T> {
     const url = this.buildUrl(opts.path, opts.query);
     const headers: Record<string, string> = { Accept: 'application/json', ...opts.headers };
     if (opts.accessToken) headers.Authorization = `Bearer ${opts.accessToken}`;

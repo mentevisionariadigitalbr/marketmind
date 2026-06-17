@@ -18,25 +18,26 @@ export function makeWebhookProcessor(deps: {
   return async (job: IncomingJob<WebhookJobData>) => {
     const { topic, resource, userId } = job.data;
     const log = deps.logger.child({ queue: QUEUES.WEBHOOK_PROCESS, jobId: job.id, topic });
+    const payload = { userId, resource };
 
-    if (topic.startsWith('orders')) {
-      await deps.dispatcher.dispatch(
-        QUEUES.ORDER_FETCH,
-        'fetch',
-        { userId, resource },
-        { jobId: `fetch:${resource}` },
-      );
-      log.info('webhook -> ml.order.fetch', { resource });
-    } else if (topic.startsWith('items')) {
-      await deps.dispatcher.dispatch(
-        QUEUES.CATALOG_SYNC,
-        'sync',
-        { userId, resource },
-        { jobId: `catalog:${resource}` },
-      );
-      log.info('webhook -> ml.catalog.sync', { resource });
-    } else {
+    // Mapeia o tópico do ML para a fila adequada (fan-out).
+    const target = resolveQueue(topic);
+    if (!target) {
       log.info('webhook topic ignorado', { resource });
+      return;
     }
+    await deps.dispatcher.dispatch(target, 'process', payload, { jobId: `${target}:${resource}` });
+    log.info(`webhook -> ${target}`, { resource });
   };
+}
+
+/** Roteia tópicos de webhook do Mercado Livre para a fila correta. */
+function resolveQueue(topic: string): (typeof QUEUES)[keyof typeof QUEUES] | null {
+  if (topic.startsWith('orders')) return QUEUES.ORDER_FETCH;
+  if (topic.startsWith('price')) return QUEUES.PRICE_SYNC;
+  if (topic.startsWith('stock') || topic.startsWith('inventory')) return QUEUES.INVENTORY_SYNC;
+  if (topic.startsWith('categor')) return QUEUES.CATEGORY_SYNC;
+  // produto / publicação / pausa / exclusão chegam como "items".
+  if (topic.startsWith('items')) return QUEUES.VARIATION_SYNC;
+  return null;
 }

@@ -115,4 +115,33 @@ describe('HttpClient', () => {
     const client = new HttpClient({ baseUrl: 'https://api.test', fetch: fn });
     await expect(client.request({ path: '/x' })).resolves.toBeUndefined();
   });
+
+  it('integra o circuit breaker: protege a chamada externa', async () => {
+    // Breaker que abre após 1 falha (estruturalmente compatível com o do pacote de filas).
+    let state: 'closed' | 'open' = 'closed';
+    const breaker = {
+      execute: async <T>(f: () => Promise<T>): Promise<T> => {
+        if (state === 'open') throw new Error('CircuitOpen');
+        try {
+          return await f();
+        } catch (e) {
+          state = 'open';
+          throw e;
+        }
+      },
+    };
+    const { fn, calls } = mockFetch([res(500), res(200, { ok: true })]);
+    const client = new HttpClient({
+      baseUrl: 'https://api.test',
+      fetch: fn,
+      sleep: jest.fn().mockResolvedValue(undefined),
+      maxRetries: 0,
+      circuitBreaker: breaker,
+    });
+
+    await expect(client.request({ path: '/a' })).rejects.toBeInstanceOf(MercadoLivreApiError);
+    // Circuito aberto: a 2ª chamada nem toca a rede.
+    await expect(client.request({ path: '/b' })).rejects.toThrow('CircuitOpen');
+    expect(calls).toHaveLength(1);
+  });
 });

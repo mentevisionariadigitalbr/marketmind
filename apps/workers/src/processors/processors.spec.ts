@@ -39,15 +39,19 @@ describe('webhook processor (fan-out)', () => {
     expect(queue.dispatched[0].queue).toBe(QUEUES.ORDER_FETCH);
   });
 
-  it('despacha ml.catalog.sync para tópicos de item', async () => {
-    const queue = new InMemoryQueueProvider();
-    const handler = makeWebhookProcessor({ dispatcher: queue.dispatcher(), logger: silentLogger });
-
-    await handler(
-      job<WebhookJobData>({ dedupeKey: 'd', topic: 'items', resource: '/items/MLB1', userId: 555 }),
-    );
-
-    expect(queue.dispatched[0].queue).toBe(QUEUES.CATALOG_SYNC);
+  it('roteia tópicos de catálogo para as filas corretas', async () => {
+    const cases: Array<[string, string]> = [
+      ['items', QUEUES.VARIATION_SYNC],
+      ['price_suggestion', QUEUES.PRICE_SYNC],
+      ['stock_location', QUEUES.INVENTORY_SYNC],
+      ['categories', QUEUES.CATEGORY_SYNC],
+    ];
+    for (const [topic, expected] of cases) {
+      const queue = new InMemoryQueueProvider();
+      const handler = makeWebhookProcessor({ dispatcher: queue.dispatcher(), logger: silentLogger });
+      await handler(job<WebhookJobData>({ dedupeKey: 'd', topic, resource: '/items/MLB1', userId: 555 }));
+      expect(queue.dispatched[0].queue).toBe(expected);
+    }
   });
 
   it('ignora tópicos não suportados sem despachar', async () => {

@@ -233,25 +233,135 @@ model MarketplaceAccount {
 }
 
 model Product {
-  id                   String   @id @default(uuid()) @db.Uuid
-  companyId            String   @map("company_id") @db.Uuid
-  marketplaceAccountId String   @map("marketplace_account_id") @db.Uuid
-  externalId           String   @map("external_id") // ex.: MLB123...
+  id                   String    @id @default(uuid()) @db.Uuid
+  companyId            String    @map("company_id") @db.Uuid
+  marketplaceAccountId String    @map("marketplace_account_id") @db.Uuid
+  externalId           String    @map("external_id") // ex.: MLB123...
   sku                  String?
   title                String
   status               String
-  price                Decimal? @db.Decimal(14, 2)
-  availableQuantity    Int?     @map("available_quantity")
-  categoryId           String?  @map("category_id")
-  createdAt            DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt            DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+  price                Decimal?  @db.Decimal(14, 2)
+  currency             String?
+  availableQuantity    Int?      @map("available_quantity")
+  categoryId           String?   @map("category_id")
+  permalink            String?
+  thumbnail            String?
+  listingType          String?   @map("listing_type")
+  lastSyncedAt         DateTime? @map("last_synced_at") @db.Timestamptz(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   account    MarketplaceAccount @relation(fields: [marketplaceAccountId], references: [id], onDelete: Cascade)
   orderItems OrderItem[]
+  variants   ProductVariant[]
+  images     ProductImage[]
+  prices     ProductPrice[]
+  inventory  Inventory[]
 
   @@unique([marketplaceAccountId, externalId])
   @@index([companyId])
+  @@index([companyId, lastSyncedAt])
   @@map("products")
+}
+
+/** Variação de um anúncio (SKU/cor/tamanho/GTIN/atributos). Itens sem variação
+ * têm uma variante sintética com external_id = id do item. */
+model ProductVariant {
+  id                String   @id @default(uuid()) @db.Uuid
+  companyId         String   @map("company_id") @db.Uuid
+  productId         String   @map("product_id") @db.Uuid
+  externalId        String   @map("external_id")
+  sku               String?
+  gtin              String? // EAN/GTIN
+  color             String?
+  size              String?
+  price             Decimal? @db.Decimal(14, 2)
+  availableQuantity Int?     @map("available_quantity")
+  attributes        Json?
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  inventory Inventory?
+
+  @@unique([productId, externalId])
+  @@index([companyId])
+  @@map("product_variants")
+}
+
+/** Saldo de estoque por variante (1:1). Idempotente por variante. */
+model Inventory {
+  id        String   @id @default(uuid()) @db.Uuid
+  companyId String   @map("company_id") @db.Uuid
+  productId String   @map("product_id") @db.Uuid
+  variantId String   @unique @map("variant_id") @db.Uuid
+  available Int      @default(0)
+  reserved  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product Product        @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@map("inventory")
+}
+
+/** Histórico de preços (append-only; só grava quando o preço muda). */
+model ProductPrice {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @map("company_id") @db.Uuid
+  productId  String   @map("product_id") @db.Uuid
+  amount     Decimal  @db.Decimal(14, 2)
+  currency   String   @default("BRL")
+  capturedAt DateTime @default(now()) @map("captured_at") @db.Timestamptz(6)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, productId, capturedAt])
+  @@map("product_prices")
+}
+
+model ProductImage {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @map("company_id") @db.Uuid
+  productId  String   @map("product_id") @db.Uuid
+  externalId String   @map("external_id") // picture id no ML
+  url        String
+  position   Int      @default(0)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, externalId])
+  @@index([companyId])
+  @@map("product_images")
+}
+
+/** Categorias do ML (catálogo global — não tenant-scoped). */
+model Category {
+  id               String   @id @default(uuid()) @db.Uuid
+  externalId       String   @unique @map("external_id") // MLB...
+  name             String
+  parentExternalId String?  @map("parent_external_id")
+  pathFromRoot     Json?    @map("path_from_root")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([parentExternalId])
+  @@map("categories")
+}
+
+/** Closure table da árvore de categorias (consultas de subárvore rápidas). */
+model CategoryTree {
+  id                 String @id @default(uuid()) @db.Uuid
+  ancestorExternalId String @map("ancestor_external_id")
+  childExternalId    String @map("child_external_id")
+  depth              Int
+
+  @@unique([ancestorExternalId, childExternalId])
+  @@index([childExternalId])
+  @@map("category_tree")
 }
 
 model Customer {

@@ -2,6 +2,10 @@
 export const QUEUES = {
   ORDER_FETCH: 'ml.order.fetch',
   CATALOG_SYNC: 'ml.catalog.sync',
+  INVENTORY_SYNC: 'ml.inventory.sync',
+  PRICE_SYNC: 'ml.price.sync',
+  CATEGORY_SYNC: 'ml.category.sync',
+  VARIATION_SYNC: 'ml.variation.sync',
   ACCOUNT_REFRESH: 'ml.account.refresh',
   WEBHOOK_PROCESS: 'ml.webhook.process',
 } as const;
