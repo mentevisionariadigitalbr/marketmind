@@ -1,22 +1,8 @@
-/**
- * Erros de aplicação independentes de framework. A camada de apresentação
- * (DomainExceptionFilter) os mapeia para status HTTP.
- */
-export class ApplicationError extends Error {
-  constructor(
-    public readonly code: string,
-    message: string,
-  ) {
-    super(message);
-    this.name = new.target.name;
-  }
-}
+// Erros base movidos para @marketmind/kernel (Sprint 2.7). Re-exportados +
+// erros específicos do IAM (estendem o ApplicationError do kernel).
+import { ApplicationError } from '@marketmind/kernel';
 
-export class ValidationError extends ApplicationError {
-  constructor(message: string) {
-    super('VALIDATION', message);
-  }
-}
+export { ApplicationError, ValidationError, NotFoundError } from '@marketmind/kernel';
 
 export class EmailAlreadyInUseError extends ApplicationError {
   constructor() {
@@ -39,11 +25,5 @@ export class InvalidRefreshTokenError extends ApplicationError {
 export class UserInactiveError extends ApplicationError {
   constructor() {
     super('USER_INACTIVE', 'Usuário inativo.');
-  }
-}
-
-export class NotFoundError extends ApplicationError {
-  constructor(entity: string) {
-    super('NOT_FOUND', `${entity} não encontrado(a).`);
   }
 }
