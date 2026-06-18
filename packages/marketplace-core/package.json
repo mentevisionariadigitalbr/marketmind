@@ -1,0 +1,31 @@
+{
+  "name": "@marketmind/marketplace-core",
+  "version": "0.1.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "lint": "echo \"(lint via ESLint compartilhado na raiz)\"",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@marketmind/kernel": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/node": "^22.10.5",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "^5.7.2"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "rootDir": "src",
+    "testRegex": ".*\\.spec\\.ts$",
+    "collectCoverageFrom": ["**/*.ts", "!**/*.spec.ts", "!index.ts"],
+    "coverageDirectory": "../coverage"
+  }
+}

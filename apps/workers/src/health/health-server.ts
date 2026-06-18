@@ -1,6 +1,6 @@
 import { createServer, Server } from 'node:http';
 import { BullMqQueueProvider, MetricsRegistry } from '@marketmind/queue';
-import { PrismaService } from '../../../api/src/shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 
 async function checkDb(prisma: PrismaService): Promise<boolean> {
   try {

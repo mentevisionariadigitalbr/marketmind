@@ -1,20 +1,20 @@
 import { BullMqQueueProvider, MetricsRegistry, StructuredLogger } from '@marketmind/queue';
 
-import { PrismaService } from '../../../api/src/shared/prisma/prisma.service';
-import { runWithTenant } from '../../../api/src/shared/tenant/tenant-context';
-import { AesGcmTokenCipher } from '../../../api/src/shared/crypto/aes-gcm-token-cipher';
-import { PrismaMarketplaceAccountRepository } from '../../../api/src/modules/integration/infrastructure/persistence/prisma-marketplace-account.repository';
-import { PrismaOrderSyncRepository } from '../../../api/src/modules/integration/infrastructure/persistence/prisma-order-sync.repository';
-import { PrismaCatalogSyncRepository } from '../../../api/src/modules/integration/infrastructure/persistence/prisma-catalog-sync.repository';
-import { MercadoLivreOAuthAdapter } from '../../../api/src/modules/integration/infrastructure/mercado-livre/ml-oauth.adapter';
-import { MercadoLivreApiFactoryAdapter } from '../../../api/src/modules/integration/infrastructure/mercado-livre/ml-api.factory';
-import { MercadoLivreSession } from '../../../api/src/modules/integration/application/services/mercado-livre-session.service';
-import { SyncOrdersUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-orders.use-case';
-import { SyncProductsUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-products.use-case';
-import { SyncVariationsUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-variations.use-case';
-import { SyncInventoryUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-inventory.use-case';
-import { SyncPricesUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-prices.use-case';
-import { SyncCategoriesUseCase } from '../../../api/src/modules/integration/application/use-cases/sync-categories.use-case';
+import { PrismaService } from '@marketmind/kernel';
+import { runWithTenant } from '@marketmind/kernel';
+import { AesGcmTokenCipher } from '@marketmind/integration-core';
+import { PrismaMarketplaceAccountRepository } from '@marketmind/integration-core';
+import { PrismaOrderSyncRepository } from '@marketmind/integration-core';
+import { PrismaCatalogSyncRepository } from '@marketmind/integration-core';
+import { MercadoLivreOAuthAdapter } from '@marketmind/integration-core';
+import { MercadoLivreApiFactoryAdapter } from '@marketmind/integration-core';
+import { MercadoLivreSession } from '@marketmind/integration-core';
+import { SyncOrdersUseCase } from '@marketmind/integration-core';
+import { SyncProductsUseCase } from '@marketmind/integration-core';
+import { SyncVariationsUseCase } from '@marketmind/integration-core';
+import { SyncInventoryUseCase } from '@marketmind/integration-core';
+import { SyncPricesUseCase } from '@marketmind/integration-core';
+import { SyncCategoriesUseCase } from '@marketmind/integration-core';
 
 import { JobStore, JobRecord } from '../jobs/job-store';
 import {

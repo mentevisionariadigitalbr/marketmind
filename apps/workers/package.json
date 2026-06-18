@@ -12,6 +12,8 @@
     "test:int": "jest --config ./test/jest-int.json --runInBand"
   },
   "dependencies": {
+    "@marketmind/integration-core": "workspace:*",
+    "@marketmind/kernel": "workspace:*",
     "@marketmind/queue": "workspace:*",
     "reflect-metadata": "^0.2.2"
   },
