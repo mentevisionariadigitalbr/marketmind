@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { TOKEN_CIPHER, TokenCipher } from '../../../../shared/crypto/token-cipher.port';
+import { TOKEN_CIPHER, TokenCipher } from '../../crypto/token-cipher.port';
 import {
   MARKETPLACE_ACCOUNT_REPOSITORY,
   MarketplaceAccountRepository,

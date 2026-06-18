@@ -4,7 +4,7 @@ import {
   WEBHOOK_EVENT_REPOSITORY,
   WebhookEventRepository,
 } from '../../domain/ports/webhook-event.repository';
-import { JOB_DISPATCHER } from '../../../../shared/queue/queue.tokens';
+import { JOB_DISPATCHER } from '../../infrastructure/queue/queue.tokens';
 
 export interface MlWebhookNotification {
   _id?: string;

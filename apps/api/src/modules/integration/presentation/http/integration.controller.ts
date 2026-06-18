@@ -7,14 +7,14 @@ import { PERMISSIONS } from '../../../iam/domain/permissions';
 import type { AccessClaims } from '../../../iam/domain/ports/token-service.port';
 import { AuditAction } from '../../../../shared/audit/audit-action.decorator';
 
-import { GetMercadoLivreAuthUrlUseCase } from '../../application/use-cases/get-ml-auth-url.use-case';
-import { ConnectMercadoLivreUseCase } from '../../application/use-cases/connect-mercado-livre.use-case';
-import { SyncOrdersUseCase } from '../../application/use-cases/sync-orders.use-case';
+import { GetMercadoLivreAuthUrlUseCase } from '@marketmind/integration-core';
+import { ConnectMercadoLivreUseCase } from '@marketmind/integration-core';
+import { SyncOrdersUseCase } from '@marketmind/integration-core';
 import {
   HandleMercadoLivreWebhookUseCase,
   MlWebhookNotification,
-} from '../../application/use-cases/handle-ml-webhook.use-case';
-import { OAuthStateService } from '../../infrastructure/mercado-livre/oauth-state.service';
+} from '@marketmind/integration-core';
+import { OAuthStateService } from '@marketmind/integration-core';
 import { SyncOrdersDto } from './dto/sync-orders.dto';
 
 @Controller('integrations/mercado-livre')

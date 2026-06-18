@@ -1,6 +1,6 @@
 import { SyncCategoriesUseCase } from './sync-categories.use-case';
 import { MercadoLivreSession } from '../services/mercado-livre-session.service';
-import { AesGcmTokenCipher } from '../../../../shared/crypto/aes-gcm-token-cipher';
+import { AesGcmTokenCipher } from '../../crypto/aes-gcm-token-cipher';
 import {
   FakeCatalogSyncRepository,
   FakeMarketplaceAccountRepository,

@@ -17,6 +17,7 @@
     "db:seed": "ts-node prisma/seed.ts"
   },
   "dependencies": {
+    "@marketmind/integration-core": "workspace:*",
     "@marketmind/kernel": "workspace:*",
     "@marketmind/queue": "workspace:*",
     "@marketmind/sdk-mercadolivre": "workspace:*",

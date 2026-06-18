@@ -1,5 +1,5 @@
 import { MercadoLivreSession } from './mercado-livre-session.service';
-import { AesGcmTokenCipher } from '../../../../shared/crypto/aes-gcm-token-cipher';
+import { AesGcmTokenCipher } from '../../crypto/aes-gcm-token-cipher';
 import { MarketplaceAccount } from '../../domain/ports/marketplace-account.repository';
 import {
   FakeMarketplaceAccountRepository,

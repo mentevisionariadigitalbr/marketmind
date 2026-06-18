@@ -1,8 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../src/shared/prisma/prisma.service';
-import { PrismaOrderSyncRepository } from '../src/modules/integration/infrastructure/persistence/prisma-order-sync.repository';
-import { PrismaWebhookEventRepository } from '../src/modules/integration/infrastructure/persistence/prisma-webhook-event.repository';
-import { NormalizedOrder } from '../src/modules/integration/domain/ports/order-sync.repository';
+import { PrismaOrderSyncRepository } from '@marketmind/integration-core';
+import { PrismaWebhookEventRepository } from '@marketmind/integration-core';
+import { NormalizedOrder } from '@marketmind/integration-core';
 import { runWithTenant } from '../src/shared/tenant/tenant-context';
 
 const OWNER_URL =

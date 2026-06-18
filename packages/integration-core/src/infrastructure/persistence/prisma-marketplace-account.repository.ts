@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { MarketplaceCode } from '@prisma/client';
-import { PrismaService } from '../../../../shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import {
   MarketplaceAccount,
   MarketplaceAccountRepository,

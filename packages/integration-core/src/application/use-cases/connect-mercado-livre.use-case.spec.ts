@@ -1,5 +1,5 @@
 import { ConnectMercadoLivreUseCase } from './connect-mercado-livre.use-case';
-import { AesGcmTokenCipher } from '../../../../shared/crypto/aes-gcm-token-cipher';
+import { AesGcmTokenCipher } from '../../crypto/aes-gcm-token-cipher';
 import { IntegrationNotConfiguredError } from '../errors';
 import {
   FakeMarketplaceAccountRepository,

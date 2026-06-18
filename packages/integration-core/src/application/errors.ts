@@ -1,4 +1,4 @@
-import { ApplicationError } from '../../iam/application/errors';
+import { ApplicationError } from '@marketmind/kernel';
 
 export class IntegrationNotFoundError extends ApplicationError {
   constructor(entity: string) {

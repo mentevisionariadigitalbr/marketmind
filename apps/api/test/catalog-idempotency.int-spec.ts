@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { PrismaService } from '../src/shared/prisma/prisma.service';
-import { PrismaCatalogSyncRepository } from '../src/modules/integration/infrastructure/persistence/prisma-catalog-sync.repository';
-import { NormalizedProduct } from '../src/modules/integration/domain/ports/catalog-sync.repository';
+import { PrismaCatalogSyncRepository } from '@marketmind/integration-core';
+import { NormalizedProduct } from '@marketmind/integration-core';
 import { runWithTenant } from '../src/shared/tenant/tenant-context';
 
 const OWNER_URL =
