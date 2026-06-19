@@ -69,14 +69,21 @@ jobs:
       - name: Lint
         run: pnpm lint
 
+      - name: Architecture boundaries (dependency-cruiser)
+        run: pnpm depcruise
+
       - name: Typecheck
         run: pnpm typecheck
 
-      - name: Build (sdk + api + web)
+      - name: Build (packages + apps)
         run: pnpm build
 
       - name: Unit tests
         run: |
+          pnpm --filter @marketmind/kernel test
+          pnpm --filter @marketmind/integration-core test
+          pnpm --filter @marketmind/marketplace-core test
+          pnpm --filter @marketmind/architecture test
           pnpm --filter @marketmind/queue test
           pnpm --filter @marketmind/sdk-mercadolivre test
           pnpm --filter @marketmind/workers test
