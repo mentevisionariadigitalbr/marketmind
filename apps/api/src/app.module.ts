@@ -12,6 +12,7 @@ import { DomainExceptionFilter } from './shared/http/domain-exception.filter';
 import { TenantInterceptor } from './shared/tenant/tenant.interceptor';
 import { IamModule } from './modules/iam/iam.module';
 import { IntegrationModule } from './modules/integration/integration.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { HealthController } from './modules/health/health.controller';
 
 @Module({
@@ -27,6 +28,7 @@ import { HealthController } from './modules/health/health.controller';
     AuditModule,
     IamModule,
     IntegrationModule,
+    DashboardModule,
   ],
   controllers: [HealthController],
   providers: [
