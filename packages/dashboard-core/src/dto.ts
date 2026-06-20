@@ -20,6 +20,11 @@ export interface RevenueDTO {
   readonly averageTicket: number;
   readonly contributionMarginPct: number;
   readonly growthPct: number;
+  /** Lucro bruto (receita coberta − COGS) — Fase 1. */
+  readonly grossProfit: number;
+  readonly grossMarginPct: number;
+  /** Fração (0..1) das vendas com custo cadastrado. <1 = lucro parcial. */
+  readonly costCoveragePct: number;
 }
 
 export interface TimelinePointDTO {
@@ -49,7 +54,10 @@ export interface InventoryDTO {
   readonly activeProducts: number;
   readonly productsWithoutStock: number;
   readonly valueAtPrice: number;
+  /** null quando nenhum SKU em estoque tem custo (cobertura 0). */
   readonly valueAtCost: number | null;
+  /** Fração (0..1) do valor de estoque (a preço) cujos SKUs têm custo. */
+  readonly valueAtCostCoveragePct: number;
   readonly turnover: number;
   readonly coverageDays: number;
 }

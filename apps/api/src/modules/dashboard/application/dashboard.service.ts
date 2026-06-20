@@ -11,11 +11,15 @@ import {
   detectAlerts,
   DEFAULT_ALERT_RULES,
   computeTrend,
+  grossProfit,
+  grossMarginPct,
   rangeDays,
   type KpiKey,
   type KpiValue,
   type KpiAvailability,
   type DashboardQueryPort,
+  type RevenueAggregate,
+  type CogsResult,
   type ProductListFilter,
   type PageRequest,
   type RevenueDTO,
@@ -29,8 +33,7 @@ import {
   type TopProductDTO,
 } from '@marketmind/dashboard-core';
 
-import { PrismaService } from '../../../shared/prisma/prisma.service';
-import { requireTenant } from '../../../shared/tenant/tenant-context';
+import { PrismaService, requireTenant } from '@marketmind/kernel';
 import { DASHBOARD_QUERY_PORT, DASHBOARD_CACHE } from '../dashboard.tokens';
 import type { DashboardCache } from '../infrastructure/cache/dashboard-cache.port';
 import { DashboardMetrics } from '../infrastructure/metrics/dashboard-metrics';
@@ -43,6 +46,8 @@ export interface OverviewResult {
   periodFrom: string;
   periodTo: string;
   kpis: OverviewCard[];
+  /** Fração (0..1) das vendas do período com custo cadastrado. <1 = lucro parcial. */
+  costCoveragePct: number;
 }
 
 /** TTLs por endpoint (s) — alinhados a docs/dashboard-api.md. */
@@ -85,9 +90,14 @@ export class DashboardService {
     return value;
   }
 
-  private card(key: KpiKey, value: number, trend?: KpiValue['trend']): OverviewCard {
+  private card(
+    key: KpiKey,
+    value: number,
+    trend?: KpiValue['trend'],
+    availabilityOverride?: KpiAvailability,
+  ): OverviewCard {
     const d = KPI_CATALOG[key];
-    return { key, label: d.label, unit: d.unit, value, availability: d.availability, trend };
+    return { key, label: d.label, unit: d.unit, value, availability: availabilityOverride ?? d.availability, trend };
   }
 
   async overview(now?: Date): Promise<OverviewResult> {
@@ -97,16 +107,18 @@ export class DashboardService {
     const prevMonth = previousOf(mtd);
 
     return this.cached('overview', TTL.overview, { d: today.from }, async () => {
-      const [rToday, rPrevDay, rMonth, rPrevMonth, inv] = await Promise.all([
+      const [rToday, rPrevDay, rMonth, rPrevMonth, inv, cogs] = await Promise.all([
         this.query.getRevenue(today),
         this.query.getRevenue(prevDay),
         this.query.getRevenue(mtd),
         this.query.getRevenue(prevMonth),
         this.query.getInventorySummary(DEFAULT_ALERT_RULES.lowStockThreshold),
+        this.query.getCogs(mtd),
       ]);
 
       const ticket = averageTicket(rMonth.revenue, rMonth.orders);
       const ticketPrev = averageTicket(rPrevMonth.revenue, rPrevMonth.orders);
+      const hasCost = cogs.coveragePct > 0;
 
       const kpis: OverviewCard[] = [
         this.card('revenue.today', rToday.revenue, computeTrend(rToday.revenue, rPrevDay.revenue)),
@@ -115,8 +127,9 @@ export class DashboardService {
         this.card('orders.month', rMonth.orders, computeTrend(rMonth.orders, rPrevMonth.orders)),
         this.card('orders.averageTicket', ticket, computeTrend(ticket, ticketPrev)),
         this.card('margin.contribution', contributionMarginPct(rMonth.revenue, rMonth.commission, rMonth.freight)),
-        this.card('profit.gross', 0), // needs-table (product_costs)
-        this.card('profit.net', 0), // needs-table
+        // Lucro bruto sobre a parcela COBERTA (Fase 1). Disponível quando há custo.
+        this.card('profit.gross', hasCost ? grossProfit(cogs.coveredRevenue, cogs.cogs) : 0, undefined, this.availability(hasCost)),
+        this.card('profit.net', 0), // needs-table (Fase 2: despesas + impostos)
         this.card('products.active', inv.activeProducts),
         this.card('products.withoutStock', inv.productsWithoutStock),
         this.card('inventory.criticalStock', inv.criticalStock),
@@ -128,61 +141,82 @@ export class DashboardService {
         periodFrom: mtd.from.toISOString(),
         periodTo: mtd.to.toISOString(),
         kpis,
+        costCoveragePct: cogs.coveragePct,
       };
     });
+  }
+
+  /** profit/margin bruto fica 'available' assim que há custo; senão 'needs-table'. */
+  private availability(hasCost: boolean): KpiAvailability {
+    return hasCost ? 'available' : 'needs-table';
   }
 
   async kpis(period: PeriodInput): Promise<OverviewResult> {
     // Lista plana de KPIs do período selecionado (catálogo completo).
     const range = resolvePeriod(period.preset, period);
     return this.cached('kpis', TTL.kpis, period, async () => {
-      const [rev, inv] = await Promise.all([
+      const [rev, inv, cogs] = await Promise.all([
         this.query.getRevenue(range),
         this.query.getInventorySummary(DEFAULT_ALERT_RULES.lowStockThreshold),
+        this.query.getCogs(range),
       ]);
       const prev = await this.query.getRevenue(previousOf(range));
       const days = Math.max(rangeDays(range), 1);
+      const hasCost = cogs.coveragePct > 0;
+      const hasStockCost = inv.valueAtCostCoveragePct > 0;
       const kpis: OverviewCard[] = [
         this.card('revenue.month', rev.revenue, computeTrend(rev.revenue, prev.revenue)),
         this.card('orders.month', rev.orders, computeTrend(rev.orders, prev.orders)),
         this.card('orders.averageTicket', averageTicket(rev.revenue, rev.orders)),
         this.card('sales.velocity', salesVelocity(rev.unitsSold, days)),
         this.card('margin.contribution', contributionMarginPct(rev.revenue, rev.commission, rev.freight)),
+        this.card('margin.gross', hasCost ? grossMarginPct(cogs.coveredRevenue, cogs.cogs) : 0, undefined, this.availability(hasCost)),
         this.card('products.active', inv.activeProducts),
         this.card('products.withoutStock', inv.productsWithoutStock),
         this.card('inventory.criticalStock', inv.criticalStock),
         this.card('inventory.valueAtPrice', inv.valueAtPrice),
+        this.card('inventory.valueAtCost', inv.valueAtCost, undefined, this.availability(hasStockCost)),
         this.card('growth.rate', growthRate(rev.revenue, prev.revenue)),
       ];
-      return { generatedAt: new Date().toISOString(), periodFrom: range.from.toISOString(), periodTo: range.to.toISOString(), kpis };
+      return { generatedAt: new Date().toISOString(), periodFrom: range.from.toISOString(), periodTo: range.to.toISOString(), kpis, costCoveragePct: cogs.coveragePct };
     });
+  }
+
+  /** Monta o RevenueDTO incluindo lucro/margem bruta (Fase 1). */
+  private revenueDto(cur: RevenueAggregate, cogs: CogsResult, growthPct: number): RevenueDTO {
+    return {
+      revenue: cur.revenue,
+      orders: cur.orders,
+      averageTicket: averageTicket(cur.revenue, cur.orders),
+      contributionMarginPct: contributionMarginPct(cur.revenue, cur.commission, cur.freight),
+      growthPct,
+      grossProfit: grossProfit(cogs.coveredRevenue, cogs.cogs),
+      grossMarginPct: grossMarginPct(cogs.coveredRevenue, cogs.cogs),
+      costCoveragePct: cogs.coveragePct,
+    };
   }
 
   async revenue(period: PeriodInput): Promise<RevenueDTO> {
     const range = resolvePeriod(period.preset, period);
     return this.cached('revenue', TTL.revenue, period, async () => {
-      const [cur, prev] = await Promise.all([this.query.getRevenue(range), this.query.getRevenue(previousOf(range))]);
-      return {
-        revenue: cur.revenue,
-        orders: cur.orders,
-        averageTicket: averageTicket(cur.revenue, cur.orders),
-        contributionMarginPct: contributionMarginPct(cur.revenue, cur.commission, cur.freight),
-        growthPct: growthRate(cur.revenue, prev.revenue),
-      };
+      const [cur, prev, cogs] = await Promise.all([
+        this.query.getRevenue(range),
+        this.query.getRevenue(previousOf(range)),
+        this.query.getCogs(range),
+      ]);
+      return this.revenueDto(cur, cogs, growthRate(cur.revenue, prev.revenue));
     });
   }
 
   async orders(period: PeriodInput): Promise<RevenueDTO> {
     const range = resolvePeriod(period.preset, period);
     return this.cached('orders', TTL.orders, period, async () => {
-      const [cur, prev] = await Promise.all([this.query.getRevenue(range), this.query.getRevenue(previousOf(range))]);
-      return {
-        revenue: cur.revenue,
-        orders: cur.orders,
-        averageTicket: averageTicket(cur.revenue, cur.orders),
-        contributionMarginPct: contributionMarginPct(cur.revenue, cur.commission, cur.freight),
-        growthPct: growthRate(cur.orders, prev.orders),
-      };
+      const [cur, prev, cogs] = await Promise.all([
+        this.query.getRevenue(range),
+        this.query.getRevenue(previousOf(range)),
+        this.query.getCogs(range),
+      ]);
+      return this.revenueDto(cur, cogs, growthRate(cur.orders, prev.orders));
     });
   }
 
@@ -241,11 +275,14 @@ export class DashboardService {
         this.query.getRevenue(range),
       ]);
       const days = Math.max(rangeDays(range), 1);
+      const hasStockCost = inv.valueAtCostCoveragePct > 0;
       return {
         activeProducts: inv.activeProducts,
         productsWithoutStock: inv.productsWithoutStock,
         valueAtPrice: inv.valueAtPrice,
-        valueAtCost: inv.valueAtCost,
+        // null quando nenhum SKU em estoque tem custo (UI mostra bloqueado).
+        valueAtCost: hasStockCost ? inv.valueAtCost : null,
+        valueAtCostCoveragePct: inv.valueAtCostCoveragePct,
         turnover: inventoryTurnover(rev.unitsSold, inv.averageInventoryUnits),
         coverageDays: stockCoverageDays(inv.totalUnitsOnHand, rev.unitsSold / days),
       };

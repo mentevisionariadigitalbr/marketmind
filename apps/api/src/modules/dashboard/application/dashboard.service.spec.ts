@@ -1,4 +1,4 @@
-import { runWithTenant } from '../../../shared/tenant/tenant-context';
+import { runWithTenant } from '@marketmind/kernel';
 import { DashboardService } from './dashboard.service';
 import { DashboardMetrics } from '../infrastructure/metrics/dashboard-metrics';
 import { InMemoryDashboardCache } from '../infrastructure/cache/in-memory-cache';
@@ -25,7 +25,8 @@ function makeQuery(over: Partial<DashboardQueryPort> = {}): { port: DashboardQue
     criticalStock: 2,
     totalUnitsOnHand: 500,
     valueAtPrice: 25000,
-    valueAtCost: null,
+    valueAtCost: 15000,
+    valueAtCostCoveragePct: 0.6,
     averageInventoryUnits: 500,
   };
   const products: ProductRevenueRow[] = [
@@ -38,6 +39,7 @@ function makeQuery(over: Partial<DashboardQueryPort> = {}): { port: DashboardQue
       calls.revenue++;
       return revenue();
     },
+    getCogs: async () => ({ cogs: 600, coveredRevenue: 1000, coveragePct: 1 }),
     getTimeline: async () => [{ bucket: '2026-06-14', revenue: 500, orders: 5, unitsSold: 10 }],
     getTopProducts: async (_r, limit) => products.slice(0, limit),
     getProductRevenue: async () => products,
@@ -74,8 +76,20 @@ describe('DashboardService', () => {
     expect(keys).toContain('inventory.criticalStock');
   });
 
-  it('marca lucro bruto/líquido como bloqueado (needs-table)', async () => {
+  it('Fase 1: com custo, lucro bruto fica available; lucro líquido segue needs-table', async () => {
     const { service } = buildService();
+    const result = await runWithTenant(TENANT, () => service.overview());
+    const gross = result.kpis.find((k) => k.key === 'profit.gross');
+    const net = result.kpis.find((k) => k.key === 'profit.net');
+    expect(gross?.availability).toBe('available'); // coverage 1 (fake)
+    expect(gross?.value).toBeCloseTo(400); // grossProfit(1000, 600)
+    expect(net?.availability).toBe('needs-table');
+    expect(net?.value).toBe(0);
+    expect(result.costCoveragePct).toBe(1);
+  });
+
+  it('sem custo (cobertura 0): lucro bruto volta a needs-table, value 0', async () => {
+    const { service } = buildService({ getCogs: async () => ({ cogs: 0, coveredRevenue: 0, coveragePct: 0 }) });
     const result = await runWithTenant(TENANT, () => service.overview());
     const gross = result.kpis.find((k) => k.key === 'profit.gross');
     expect(gross?.availability).toBe('needs-table');
@@ -126,11 +140,23 @@ describe('DashboardService', () => {
     expect(r.counts.critical).toBeGreaterThanOrEqual(1);
   });
 
-  it('inventory expõe giro e cobertura; valor a custo nulo', async () => {
+  it('inventory: com custo expõe valueAtCost + cobertura; giro > 0', async () => {
     const { service } = buildService();
     const r = await runWithTenant(TENANT, () => service.inventory({ preset: '30d' }));
-    expect(r.valueAtCost).toBeNull();
+    expect(r.valueAtCost).toBe(15000); // fake coverage 0.6 > 0
+    expect(r.valueAtCostCoveragePct).toBeCloseTo(0.6);
     expect(r.turnover).toBeGreaterThan(0);
+  });
+
+  it('inventory: sem custo em estoque (cobertura 0) → valueAtCost null', async () => {
+    const { service } = buildService({
+      getInventorySummary: async () => ({
+        activeProducts: 1, productsWithoutStock: 0, criticalStock: 0, totalUnitsOnHand: 10,
+        valueAtPrice: 100, valueAtCost: 0, valueAtCostCoveragePct: 0, averageInventoryUnits: 10,
+      }),
+    });
+    const r = await runWithTenant(TENANT, () => service.inventory({ preset: '30d' }));
+    expect(r.valueAtCost).toBeNull();
   });
 
   it('products pagina e calcula totalPages', async () => {

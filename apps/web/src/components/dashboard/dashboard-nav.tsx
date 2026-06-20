@@ -6,6 +6,7 @@ import { usePathname } from 'next/navigation';
 const ITEMS: { href: string; label: string; icon: string }[] = [
   { href: '/dashboard', label: 'Overview', icon: '▣' },
   { href: '/dashboard/products', label: 'Produtos', icon: '☷' },
+  { href: '/dashboard/costs', label: 'Custos dos Produtos', icon: '₵' },
   { href: '/dashboard/inventory', label: 'Estoque', icon: '▤' },
   { href: '/dashboard/categories', label: 'Categorias', icon: '◳' },
   { href: '/dashboard/abc', label: 'Curva ABC', icon: '▮' },

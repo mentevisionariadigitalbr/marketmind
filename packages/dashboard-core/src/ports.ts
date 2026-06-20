@@ -47,9 +47,22 @@ export interface InventorySummary {
   readonly criticalStock: number;
   readonly totalUnitsOnHand: number;
   readonly valueAtPrice: number;
-  /** Disponível só com `product_costs` (null até então). */
-  readonly valueAtCost: number | null;
+  /** Valor de estoque a custo (estoque × custo vigente hoje) dos SKUs COM custo. */
+  readonly valueAtCost: number;
+  /** Fração (0..1) do valor de estoque (a preço) cujos SKUs têm custo. */
+  readonly valueAtCostCoveragePct: number;
   readonly averageInventoryUnits: number;
+}
+
+/**
+ * COGS do período + cobertura. `coveredRevenue` é a receita (item-level) apenas
+ * dos itens COM custo — lucro bruto = coveredRevenue − cogs (honesto: itens sem
+ * custo não entram como custo zero). `coveragePct` = coveredRevenue / receita total.
+ */
+export interface CogsResult {
+  readonly cogs: number;
+  readonly coveredRevenue: number;
+  readonly coveragePct: number;
 }
 
 /** Filtros da listagem paginada de produtos (módulo /dashboard/products). */
@@ -115,6 +128,7 @@ export interface ProductSignal {
  */
 export interface DashboardQueryPort {
   getRevenue(range: DateRange): Promise<RevenueAggregate>;
+  getCogs(range: DateRange): Promise<CogsResult>;
   getTimeline(range: DateRange): Promise<TimelinePoint[]>;
   getTopProducts(range: DateRange, limit: number): Promise<ProductRevenueRow[]>;
   getTopCategories(range: DateRange, limit: number): Promise<CategoryRevenueRow[]>;

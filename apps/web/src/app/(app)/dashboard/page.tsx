@@ -1,7 +1,8 @@
+import Link from 'next/link';
 import { getOverview, getTimeline, getTopProducts, getAbc } from '@/lib/dashboard';
 import { MetricCard, Card, EmptyState, Badge } from '@/components/dashboard/primitives';
 import { LineChart, BarChart } from '@/components/dashboard/charts';
-import { formatBRL } from '@/lib/format';
+import { formatBRL, formatPercent } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,17 @@ export default async function OverviewPage() {
         />
       ) : (
         <>
+          {overview.costCoveragePct < 1 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Lucro parcial: custos cadastrados em{' '}
+              <strong>{formatPercent(overview.costCoveragePct)}</strong> das vendas.{' '}
+              <Link href="/dashboard/costs" className="font-semibold underline">
+                Cadastrar custos
+              </Link>{' '}
+              para um lucro bruto completo.
+            </div>
+          )}
+
           <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
             {overview.kpis.map((kpi) => (
               <MetricCard key={kpi.key} kpi={kpi} />

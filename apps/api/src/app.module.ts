@@ -1,9 +1,13 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
-import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { APP_FILTER, APP_GUARD, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { Redis } from 'ioredis';
 
 import { validateEnv } from './config/env';
+import { RedisThrottlerStorage } from './shared/throttler/redis-throttler.storage';
+import { ObservableThrottlerGuard } from './shared/throttler/observable-throttler.guard';
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { CryptoModule } from './shared/crypto/crypto.module';
 import { QueueModule } from './shared/queue/queue.module';
@@ -13,6 +17,7 @@ import { TenantInterceptor } from './shared/tenant/tenant.interceptor';
 import { IamModule } from './modules/iam/iam.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { FinanceModule } from './modules/finance/finance.module';
 import { HealthController } from './modules/health/health.controller';
 
 @Module({
@@ -22,6 +27,32 @@ import { HealthController } from './modules/health/health.controller';
       validate: validateEnv,
       envFilePath: ['.env'],
     }),
+    // Rate limiting global por IP. Limites por rota via @Throttle.
+    // Storage em Redis quando há REDIS_URL (limite compartilhado entre instâncias,
+    // Sprint 4.0); sem Redis, cai no storage em memória (dev/test).
+    ThrottlerModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        let storage: RedisThrottlerStorage | undefined;
+        if (redisUrl) {
+          const redis = new Redis(redisUrl, { maxRetriesPerRequest: null, lazyConnect: true });
+          redis.on('error', () => undefined); // resiliente: erros não derrubam a app
+          void redis.connect().catch(() => undefined);
+          storage = new RedisThrottlerStorage(redis);
+        }
+        return {
+          throttlers: [
+            {
+              name: 'default',
+              ttl: config.get<number>('THROTTLE_TTL_MS') ?? 60_000,
+              limit: config.get<number>('THROTTLE_LIMIT') ?? 300,
+            },
+          ],
+          storage,
+        };
+      },
+    }),
     PrismaModule,
     CryptoModule,
     QueueModule,
@@ -29,6 +60,7 @@ import { HealthController } from './modules/health/health.controller';
     IamModule,
     IntegrationModule,
     DashboardModule,
+    FinanceModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -42,6 +74,7 @@ import { HealthController } from './modules/health/health.controller';
     },
     { provide: APP_FILTER, useClass: DomainExceptionFilter },
     { provide: APP_INTERCEPTOR, useClass: TenantInterceptor },
+    { provide: APP_GUARD, useClass: ObservableThrottlerGuard },
   ],
 })
 export class AppModule {}

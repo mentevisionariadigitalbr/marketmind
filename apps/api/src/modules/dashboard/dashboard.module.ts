@@ -7,6 +7,7 @@ import { DASHBOARD_QUERY_PORT, DASHBOARD_CACHE } from './dashboard.tokens';
 import { DashboardService } from './application/dashboard.service';
 import { PrismaDashboardQueryRepository } from './infrastructure/prisma-dashboard-query.repository';
 import { DashboardMetrics } from './infrastructure/metrics/dashboard-metrics';
+import { MetricsGuard } from './infrastructure/metrics/metrics.guard';
 import { InMemoryDashboardCache } from './infrastructure/cache/in-memory-cache';
 import { RedisDashboardCache } from './infrastructure/cache/redis-cache';
 import type { DashboardCache } from './infrastructure/cache/dashboard-cache.port';
@@ -24,6 +25,7 @@ import { MetricsController } from './presentation/http/metrics.controller';
   providers: [
     DashboardService,
     DashboardMetrics,
+    MetricsGuard,
     { provide: DASHBOARD_QUERY_PORT, useClass: PrismaDashboardQueryRepository },
     {
       provide: DASHBOARD_CACHE,

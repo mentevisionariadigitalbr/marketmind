@@ -22,6 +22,7 @@ export class OverviewResponseDto {
   @ApiProperty() periodFrom!: string;
   @ApiProperty() periodTo!: string;
   @ApiProperty({ type: [KpiCardDto] }) kpis!: KpiCardDto[];
+  @ApiProperty({ example: 0.8, description: 'Fração (0..1) das vendas com custo cadastrado' }) costCoveragePct!: number;
 }
 
 export class RevenueResponseDto {
@@ -30,6 +31,9 @@ export class RevenueResponseDto {
   @ApiProperty() averageTicket!: number;
   @ApiProperty() contributionMarginPct!: number;
   @ApiProperty() growthPct!: number;
+  @ApiProperty({ description: 'Lucro bruto (receita coberta − COGS)' }) grossProfit!: number;
+  @ApiProperty() grossMarginPct!: number;
+  @ApiProperty({ example: 0.8, description: 'Fração (0..1) das vendas com custo' }) costCoveragePct!: number;
 }
 
 export class TimelinePointDto {
@@ -63,7 +67,8 @@ export class InventoryResponseDto {
   @ApiProperty() activeProducts!: number;
   @ApiProperty() productsWithoutStock!: number;
   @ApiProperty() valueAtPrice!: number;
-  @ApiProperty({ nullable: true, description: 'null até existir product_costs' }) valueAtCost!: number | null;
+  @ApiProperty({ nullable: true, description: 'null quando nenhum SKU em estoque tem custo' }) valueAtCost!: number | null;
+  @ApiProperty({ example: 0.8, description: 'Fração (0..1) do estoque (a preço) com custo' }) valueAtCostCoveragePct!: number;
   @ApiProperty() turnover!: number;
   @ApiProperty() coverageDays!: number;
 }

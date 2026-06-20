@@ -22,6 +22,8 @@ export interface Overview {
   periodFrom: string;
   periodTo: string;
   kpis: KpiCard[];
+  /** Fração (0..1) das vendas com custo cadastrado (<1 = lucro parcial). */
+  costCoveragePct: number;
 }
 export interface TimelinePoint {
   bucket: string;

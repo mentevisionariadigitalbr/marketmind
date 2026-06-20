@@ -257,6 +257,7 @@ model Product {
   images     ProductImage[]
   prices     ProductPrice[]
   inventory  Inventory[]
+  costs      ProductCost[]
 
   @@unique([marketplaceAccountId, externalId])
   @@index([companyId])
@@ -283,6 +284,7 @@ model ProductVariant {
 
   product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
   inventory Inventory?
+  costs     ProductCost[]
 
   @@unique([productId, externalId])
   @@index([companyId])
@@ -421,6 +423,38 @@ model OrderItem {
   @@index([companyId])
   @@index([orderId])
   @@map("order_items")
+}
+
+/**
+ * Custo unitário por produto/variante com vigência por data (Fase 1 — Custos &
+ * Lucratividade). Append-only por `valid_from`: um pedido usa o custo que valia
+ * na sua data, preservando o COGS/lucro histórico. Custo unitário total =
+ * acquisition + inboundFreight + packaging + other. Tenant-scoped via RLS.
+ */
+model ProductCost {
+  id              String    @id @default(uuid()) @db.Uuid
+  companyId       String    @map("company_id") @db.Uuid
+  productId       String    @map("product_id") @db.Uuid
+  variantId       String?   @map("variant_id") @db.Uuid
+  sku             String?
+  acquisitionCost Decimal   @default(0) @map("acquisition_cost") @db.Decimal(14, 2)
+  inboundFreight  Decimal   @default(0) @map("inbound_freight") @db.Decimal(14, 2)
+  packagingCost   Decimal   @default(0) @map("packaging_cost") @db.Decimal(14, 2)
+  otherCost       Decimal   @default(0) @map("other_cost") @db.Decimal(14, 2)
+  currency        String    @default("BRL")
+  validFrom       DateTime  @default(now()) @map("valid_from") @db.Timestamptz(6)
+  note            String?
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  product Product         @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variant ProductVariant? @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@index([companyId])
+  @@index([companyId, productId, validFrom])
+  @@index([companyId, variantId, validFrom])
+  @@index([companyId, sku, validFrom])
+  @@map("product_costs")
 }
 
 /** Idempotência de webhooks: a mesma notificação não é processada duas vezes. */

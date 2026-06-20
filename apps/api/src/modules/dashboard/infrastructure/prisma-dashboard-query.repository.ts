@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../../shared/prisma/prisma.service';
-import { requireTenant } from '../../../shared/tenant/tenant-context';
+import { PrismaService, requireTenant } from '@marketmind/kernel';
+import { grossProfit, grossMarginPct } from '@marketmind/dashboard-core';
 import type {
   DashboardQueryPort,
   RevenueAggregate,
+  CogsResult,
   TimelinePoint,
   ProductRevenueRow,
   CategoryRevenueRow,
@@ -67,6 +68,50 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
         distinctCustomers: agg?.distinct_customers ?? 0,
         unitsSold: units?.units ?? 0,
       };
+    });
+  }
+
+  /**
+   * LATERAL que resolve o custo unitário de um `order_item` na data do pedido.
+   * Espelha `selectActiveCost` (dashboard-core): VIGENTE (valid_from <= data) antes
+   * de futuro; variante (por SKU) antes de produto; entre vigentes o mais recente,
+   * entre futuros o mais antigo (o custo mais antigo retroage). Ancorado em
+   * `product_id`; fallback por SKU quando `product_id` é nulo. Requer `oi` e `o`.
+   */
+  private unitCostLateral(): Prisma.Sql {
+    return Prisma.sql`
+      LEFT JOIN LATERAL (
+        SELECT (pc.acquisition_cost + pc.inbound_freight + pc.packaging_cost + pc.other_cost)::float8 AS unit_cost
+        FROM product_costs pc
+        WHERE pc.company_id = oi.company_id
+          AND (
+            (oi.product_id IS NOT NULL AND pc.product_id = oi.product_id AND (pc.variant_id IS NULL OR pc.sku = oi.sku))
+            OR (oi.product_id IS NULL AND oi.sku IS NOT NULL AND pc.sku = oi.sku)
+          )
+        ORDER BY
+          (CASE WHEN pc.valid_from <= o.ordered_at THEN 0 ELSE 1 END),
+          (CASE WHEN pc.variant_id IS NOT NULL AND pc.sku = oi.sku THEN 0 ELSE 1 END),
+          (CASE WHEN pc.valid_from <= o.ordered_at THEN pc.valid_from END) DESC NULLS LAST,
+          pc.valid_from ASC
+        LIMIT 1
+      ) cost ON true`;
+  }
+
+  async getCogs(range: DateRange): Promise<CogsResult> {
+    return this.run(async (db) => {
+      const [row] = await db.$queryRaw<{ cogs: number; covered_revenue: number; total_revenue: number }[]>(Prisma.sql`
+        SELECT
+          COALESCE(SUM(CASE WHEN cost.unit_cost IS NOT NULL THEN oi.quantity * cost.unit_cost END), 0)::float8 AS cogs,
+          COALESCE(SUM(CASE WHEN cost.unit_cost IS NOT NULL THEN oi.quantity * oi.unit_price END), 0)::float8 AS covered_revenue,
+          COALESCE(SUM(oi.quantity * oi.unit_price), 0)::float8 AS total_revenue
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        ${this.unitCostLateral()}
+        WHERE oi.company_id = ${this.companyId}::uuid
+          AND o.ordered_at >= ${range.from} AND o.ordered_at < ${range.to}`);
+      const total = row?.total_revenue ?? 0;
+      const covered = row?.covered_revenue ?? 0;
+      return { cogs: row?.cogs ?? 0, coveredRevenue: covered, coveragePct: total > 0 ? covered / total : 0 };
     });
   }
 
@@ -213,14 +258,43 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
                COALESCE(SUM(on_hand), 0)::int                     AS total_units,
                COALESCE(SUM(on_hand * price), 0)::float8          AS value_at_price
         FROM stock`;
+      // Valor de estoque a custo (custo vigente HOJE por variante) + cobertura.
+      const [cost] = await db.$queryRaw<{ value_at_cost: number; covered_value: number; total_value: number }[]>(Prisma.sql`
+        WITH vs AS (
+          SELECT i.company_id, i.variant_id, v.product_id, v.sku AS variant_sku, i.available,
+                 COALESCE(v.price, p.price, 0)::float8 AS price
+          FROM inventory i
+          JOIN product_variants v ON v.id = i.variant_id
+          JOIN products p ON p.id = i.product_id
+          WHERE i.company_id = ${this.companyId}::uuid
+        )
+        SELECT
+          COALESCE(SUM(CASE WHEN c.unit_cost IS NOT NULL THEN vs.available * c.unit_cost END), 0)::float8 AS value_at_cost,
+          COALESCE(SUM(CASE WHEN c.unit_cost IS NOT NULL THEN vs.available * vs.price END), 0)::float8 AS covered_value,
+          COALESCE(SUM(vs.available * vs.price), 0)::float8 AS total_value
+        FROM vs
+        LEFT JOIN LATERAL (
+          SELECT (pc.acquisition_cost + pc.inbound_freight + pc.packaging_cost + pc.other_cost)::float8 AS unit_cost
+          FROM product_costs pc
+          WHERE pc.company_id = vs.company_id
+            AND pc.valid_from <= now()
+            AND pc.product_id = vs.product_id
+            AND (pc.variant_id IS NULL OR pc.variant_id = vs.variant_id OR pc.sku = vs.variant_sku)
+          ORDER BY (CASE WHEN pc.variant_id = vs.variant_id OR (pc.variant_id IS NOT NULL AND pc.sku = vs.variant_sku) THEN 0 ELSE 1 END), pc.valid_from DESC
+          LIMIT 1
+        ) c ON true`);
+
       const totalUnits = row?.total_units ?? 0;
+      const totalValue = cost?.total_value ?? 0;
+      const coveredValue = cost?.covered_value ?? 0;
       return {
         activeProducts: row?.active_products ?? 0,
         productsWithoutStock: row?.without_stock ?? 0,
         criticalStock: row?.critical_stock ?? 0,
         totalUnitsOnHand: totalUnits,
         valueAtPrice: row?.value_at_price ?? 0,
-        valueAtCost: null, // requer product_costs (ver dashboard-architecture.md)
+        valueAtCost: cost?.value_at_cost ?? 0,
+        valueAtCostCoveragePct: totalValue > 0 ? coveredValue / totalValue : 0,
         averageInventoryUnits: totalUnits, // aproximação point-in-time (sem snapshot histórico)
       };
     });
@@ -255,7 +329,7 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
         {
           id: string; sku: string | null; title: string; thumbnail: string | null;
           category_id: string | null; status: string; price: number; stock: number;
-          revenue: number; units_sold: number; total_count: number;
+          revenue: number; units_sold: number; cogs: number; covered_revenue: number; total_count: number;
         }[]
       >(Prisma.sql`
         WITH base AS (
@@ -268,9 +342,12 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
         sales AS (
           SELECT oi.product_id,
                  SUM(oi.quantity * oi.unit_price)::float8 AS revenue,
-                 SUM(oi.quantity)::int AS units_sold
+                 SUM(oi.quantity)::int AS units_sold,
+                 COALESCE(SUM(CASE WHEN cost.unit_cost IS NOT NULL THEN oi.quantity * cost.unit_cost END), 0)::float8 AS cogs,
+                 COALESCE(SUM(CASE WHEN cost.unit_cost IS NOT NULL THEN oi.quantity * oi.unit_price END), 0)::float8 AS covered_revenue
           FROM order_items oi
           JOIN orders o ON o.id = oi.order_id
+          ${this.unitCostLateral()}
           WHERE oi.company_id = ${this.companyId}::uuid
             AND o.ordered_at >= ${range.from} AND o.ordered_at < ${range.to}
           GROUP BY oi.product_id
@@ -278,6 +355,8 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
         SELECT b.id, b.sku, b.title, b.thumbnail, b.category_id, b.status, b.price, b.stock,
                COALESCE(s.revenue, 0)::float8 AS revenue,
                COALESCE(s.units_sold, 0)::int AS units_sold,
+               COALESCE(s.cogs, 0)::float8 AS cogs,
+               COALESCE(s.covered_revenue, 0)::float8 AS covered_revenue,
                COUNT(*) OVER()::int AS total_count
         FROM base b
         LEFT JOIN sales s ON s.product_id = b.id
@@ -298,8 +377,9 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
           stock: r.stock,
           revenue: r.revenue,
           unitsSold: r.units_sold,
-          profit: null, // requer product_costs
-          marginPct: null, // requer product_costs
+          // Lucro/margem só sobre a parcela COM custo; SKU sem custo → null (cobertura faltante).
+          profit: r.covered_revenue > 0 ? grossProfit(r.covered_revenue, r.cogs) : null,
+          marginPct: r.covered_revenue > 0 ? grossMarginPct(r.covered_revenue, r.cogs) : null,
         })),
         page: page.page,
         pageSize,
@@ -311,16 +391,43 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
   async getProductSignals(current: DateRange, previous: DateRange): Promise<ProductSignal[]> {
     return this.run(async (db) => {
       const rows = await db.$queryRaw<
-        { id: string; sku: string | null; title: string; status: string; stock: number; units_current: number; units_previous: number }[]
-      >`
+        { id: string; sku: string | null; title: string; status: string; stock: number; units_current: number; units_previous: number; cogs: number; covered_revenue: number }[]
+      >(Prisma.sql`
+        WITH cur AS (
+          SELECT oi.product_id,
+                 SUM(oi.quantity)::int AS units,
+                 COALESCE(SUM(CASE WHEN cost.unit_cost IS NOT NULL THEN oi.quantity * cost.unit_cost END), 0)::float8 AS cogs,
+                 COALESCE(SUM(CASE WHEN cost.unit_cost IS NOT NULL THEN oi.quantity * oi.unit_price END), 0)::float8 AS covered_revenue
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          ${this.unitCostLateral()}
+          WHERE oi.company_id = ${this.companyId}::uuid
+            AND o.ordered_at >= ${current.from} AND o.ordered_at < ${current.to}
+          GROUP BY oi.product_id
+        ),
+        prev AS (
+          SELECT oi.product_id, SUM(oi.quantity)::int AS units
+          FROM order_items oi
+          JOIN orders o ON o.id = oi.order_id
+          WHERE oi.company_id = ${this.companyId}::uuid
+            AND o.ordered_at >= ${previous.from} AND o.ordered_at < ${previous.to}
+          GROUP BY oi.product_id
+        ),
+        stk AS (
+          SELECT product_id, SUM(available)::int AS stock
+          FROM inventory WHERE company_id = ${this.companyId}::uuid GROUP BY product_id
+        )
         SELECT p.id, p.sku, p.title, p.status,
-               COALESCE((SELECT SUM(i.available) FROM inventory i WHERE i.product_id = p.id), 0)::int AS stock,
-               COALESCE((SELECT SUM(oi.quantity) FROM order_items oi JOIN orders o ON o.id = oi.order_id
-                         WHERE oi.product_id = p.id AND o.ordered_at >= ${current.from} AND o.ordered_at < ${current.to}), 0)::int AS units_current,
-               COALESCE((SELECT SUM(oi.quantity) FROM order_items oi JOIN orders o ON o.id = oi.order_id
-                         WHERE oi.product_id = p.id AND o.ordered_at >= ${previous.from} AND o.ordered_at < ${previous.to}), 0)::int AS units_previous
+               COALESCE(stk.stock, 0)::int AS stock,
+               COALESCE(cur.units, 0)::int AS units_current,
+               COALESCE(prev.units, 0)::int AS units_previous,
+               COALESCE(cur.cogs, 0)::float8 AS cogs,
+               COALESCE(cur.covered_revenue, 0)::float8 AS covered_revenue
         FROM products p
-        WHERE p.company_id = ${this.companyId}::uuid`;
+        LEFT JOIN cur ON cur.product_id = p.id
+        LEFT JOIN prev ON prev.product_id = p.id
+        LEFT JOIN stk ON stk.product_id = p.id
+        WHERE p.company_id = ${this.companyId}::uuid`);
       return rows.map((r) => ({
         productId: r.id,
         sku: r.sku,
@@ -329,7 +436,7 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
         stock: r.stock,
         unitsSoldCurrent: r.units_current,
         unitsSoldPrevious: r.units_previous,
-        marginPct: null,
+        marginPct: r.covered_revenue > 0 ? grossMarginPct(r.covered_revenue, r.cogs) : null,
       }));
     });
   }
