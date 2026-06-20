@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import { Company, TaxRegime } from '../../domain/entities/company.entity';
 import { CompanyRepository, CreateCompanyData } from '../../domain/ports/company.repository';
 

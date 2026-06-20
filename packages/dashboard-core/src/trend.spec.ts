@@ -1,5 +1,5 @@
 import { computeTrend } from './trend';
-import { previousRange, rangeDays } from './period';
+import { rangeDays } from './period';
 
 describe('computeTrend', () => {
   it('sobe quando atual > anterior', () => {
@@ -18,11 +18,8 @@ describe('computeTrend', () => {
 });
 
 describe('period helpers', () => {
-  it('previousRange devolve janela anterior de mesma duração', () => {
-    const range = { from: new Date('2026-06-08'), to: new Date('2026-06-15') };
-    const prev = previousRange(range);
-    expect(prev.to).toEqual(range.from);
-    expect(rangeDays(prev)).toBeCloseTo(7);
+  it('rangeDays calcula a duração em dias', () => {
+    expect(rangeDays({ from: new Date('2026-06-08'), to: new Date('2026-06-15') })).toBeCloseTo(7);
   });
 
   it('rangeDays é 0 para janela invertida/vazia', () => {

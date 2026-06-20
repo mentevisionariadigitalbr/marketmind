@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 
-import { PrismaService } from '../../shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import { parseDurationMs } from '../../shared/util/duration';
 
 import { AuthController } from './presentation/http/auth.controller';

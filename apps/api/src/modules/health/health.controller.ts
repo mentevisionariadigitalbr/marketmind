@@ -1,5 +1,5 @@
 import { Controller, Get } from '@nestjs/common';
-import { PrismaService } from '../../shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 
 @Controller()
 export class HealthController {

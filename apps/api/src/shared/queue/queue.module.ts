@@ -1,7 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BullMqQueueProvider, JobDispatcher, StructuredLogger } from '@marketmind/queue';
-import { JOB_DISPATCHER } from './queue.tokens';
+import { JOB_DISPATCHER } from '@marketmind/integration-core';
 import { NoopJobDispatcher } from './noop-dispatcher';
 
 /**

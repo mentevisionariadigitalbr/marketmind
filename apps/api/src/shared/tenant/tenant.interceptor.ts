@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { runWithTenant } from './tenant-context';
+import { runWithTenant } from '@marketmind/kernel';
 import type { AccessClaims } from '../../modules/iam/domain/ports/token-service.port';
 
 /**
