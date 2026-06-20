@@ -47,3 +47,70 @@ export async function importCostsAction(formData: FormData): Promise<void> {
   revalidatePath('/dashboard/costs');
   revalidatePath('/dashboard');
 }
+
+function revalidateFinance(): void {
+  revalidatePath('/dashboard/finance/dre');
+  revalidatePath('/dashboard/finance/expenses');
+  revalidatePath('/dashboard/finance/taxes');
+  revalidatePath('/dashboard');
+}
+
+export async function createExpenseAction(formData: FormData): Promise<void> {
+  const access = await token();
+  if (!access) return;
+  const startsOn = String(formData.get('startsOn') ?? '');
+  if (!startsOn) return;
+  const endsOn = String(formData.get('endsOn') ?? '');
+  const body = {
+    category: String(formData.get('category') ?? ''),
+    kind: String(formData.get('kind') ?? 'VARIABLE'),
+    amount: Number(formData.get('amount') ?? 0),
+    recurrence: String(formData.get('recurrence') ?? 'NONE'),
+    startsOn,
+    ...(endsOn ? { endsOn } : {}),
+    ...(formData.get('note') ? { note: String(formData.get('note')) } : {}),
+  };
+  await apiFetch('/finance/expenses', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${access}` },
+    body: JSON.stringify(body),
+  });
+  revalidateFinance();
+}
+
+export async function deleteExpenseAction(formData: FormData): Promise<void> {
+  const access = await token();
+  if (!access) return;
+  const id = String(formData.get('id') ?? '');
+  if (!id) return;
+  await apiFetch(`/finance/expenses/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${access}` } });
+  revalidateFinance();
+}
+
+export async function upsertTaxRuleAction(formData: FormData): Promise<void> {
+  const access = await token();
+  if (!access) return;
+  const category = String(formData.get('category') ?? '');
+  const body = {
+    regime: String(formData.get('regime') ?? 'SIMPLES_NACIONAL'),
+    ...(category ? { category } : {}),
+    // usuário digita em %, a API espera fração 0..1.
+    rate: Number(formData.get('ratePct') ?? 0) / 100,
+    ...(formData.get('note') ? { note: String(formData.get('note')) } : {}),
+  };
+  await apiFetch('/finance/tax-rules', {
+    method: 'PUT',
+    headers: { Authorization: `Bearer ${access}` },
+    body: JSON.stringify(body),
+  });
+  revalidateFinance();
+}
+
+export async function deleteTaxRuleAction(formData: FormData): Promise<void> {
+  const access = await token();
+  if (!access) return;
+  const id = String(formData.get('id') ?? '');
+  if (!id) return;
+  await apiFetch(`/finance/tax-rules/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${access}` } });
+  revalidateFinance();
+}

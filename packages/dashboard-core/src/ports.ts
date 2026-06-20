@@ -7,6 +7,7 @@
  */
 
 import type { DateRange } from './period';
+import type { TaxResult } from './tax';
 
 export interface RevenueAggregate {
   readonly revenue: number;
@@ -137,4 +138,8 @@ export interface DashboardQueryPort {
   listProducts(filter: ProductListFilter, page: PageRequest, range: DateRange): Promise<Paged<ProductListRow>>;
   getInventorySummary(lowStockThreshold?: number): Promise<InventorySummary>;
   getProductSignals(current: DateRange, previous: DateRange): Promise<ProductSignal[]>;
+  /** Despesas operacionais do período (recorrências já expandidas). Fase 2. */
+  getOperatingExpenses(range: DateRange): Promise<number>;
+  /** Imposto do período por regime/categoria (alíquota efetiva). Fase 2. */
+  getTaxes(range: DateRange): Promise<TaxResult>;
 }

@@ -1,11 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService, requireTenant } from '@marketmind/kernel';
-import { grossProfit, grossMarginPct } from '@marketmind/dashboard-core';
+import { grossProfit, grossMarginPct, totalOperatingExpenses, computeTax } from '@marketmind/dashboard-core';
 import type {
   DashboardQueryPort,
   RevenueAggregate,
   CogsResult,
+  RecurringExpense,
+  TaxResult,
+  TaxRule,
+  TaxRegime,
   TimelinePoint,
   ProductRevenueRow,
   CategoryRevenueRow,
@@ -438,6 +442,58 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
         unitsSoldPrevious: r.units_previous,
         marginPct: r.covered_revenue > 0 ? grossMarginPct(r.covered_revenue, r.cogs) : null,
       }));
+    });
+  }
+
+  async getOperatingExpenses(range: DateRange): Promise<number> {
+    return this.run(async (db) => {
+      // Busca despesas que possam tocar o período; a expansão de recorrência
+      // (e o recorte exato) é feita pela função pura (fonte única de verdade).
+      const rows = await db.expense.findMany({
+        where: {
+          companyId: this.companyId,
+          startsOn: { lt: range.to },
+          OR: [{ endsOn: null }, { endsOn: { gte: range.from } }],
+        },
+        select: { amount: true, recurrence: true, startsOn: true, endsOn: true },
+      });
+      const expenses: RecurringExpense[] = rows.map((r) => ({
+        amount: Number(r.amount),
+        recurrence: r.recurrence as RecurringExpense['recurrence'],
+        startsOn: r.startsOn,
+        endsOn: r.endsOn,
+      }));
+      return totalOperatingExpenses(expenses, range);
+    });
+  }
+
+  async getTaxes(range: DateRange): Promise<TaxResult> {
+    return this.run(async (db) => {
+      const company = await db.company.findUnique({ where: { id: this.companyId }, select: { taxRegime: true } });
+      const regime = (company?.taxRegime ?? 'SIMPLES_NACIONAL') as TaxRegime;
+
+      const ruleRows = await db.taxRule.findMany({
+        where: { companyId: this.companyId, regime },
+        select: { category: true, rate: true },
+      });
+      const rules: TaxRule[] = ruleRows.map((r) => ({ category: r.category, rate: Number(r.rate) }));
+
+      // Receita (item-level) por categoria no período — base do imposto.
+      const revRows = await db.$queryRaw<{ category: string | null; revenue: number }[]>`
+        SELECT p.category_id AS category,
+               COALESCE(SUM(oi.quantity * oi.unit_price), 0)::float8 AS revenue
+        FROM order_items oi
+        JOIN orders o ON o.id = oi.order_id
+        LEFT JOIN products p ON p.id = oi.product_id
+        WHERE oi.company_id = ${this.companyId}::uuid
+          AND o.ordered_at >= ${range.from} AND o.ordered_at < ${range.to}
+        GROUP BY p.category_id`;
+
+      return computeTax(
+        revRows.map((r) => ({ category: r.category, revenue: r.revenue })),
+        regime,
+        rules,
+      );
     });
   }
 }

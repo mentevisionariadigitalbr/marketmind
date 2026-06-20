@@ -40,6 +40,8 @@ function makeQuery(over: Partial<DashboardQueryPort> = {}): { port: DashboardQue
       return revenue();
     },
     getCogs: async () => ({ cogs: 600, coveredRevenue: 1000, coveragePct: 1 }),
+    getOperatingExpenses: async () => 0,
+    getTaxes: async () => ({ tax: 0, effectiveRatePct: 0 }),
     getTimeline: async () => [{ bucket: '2026-06-14', revenue: 500, orders: 5, unitsSold: 10 }],
     getTopProducts: async (_r, limit) => products.slice(0, limit),
     getProductRevenue: async () => products,
@@ -76,24 +78,28 @@ describe('DashboardService', () => {
     expect(keys).toContain('inventory.criticalStock');
   });
 
-  it('Fase 1: com custo, lucro bruto fica available; lucro líquido segue needs-table', async () => {
+  it('Fase 2: com custo, lucro bruto E líquido ficam available (DRE)', async () => {
     const { service } = buildService();
     const result = await runWithTenant(TENANT, () => service.overview());
     const gross = result.kpis.find((k) => k.key === 'profit.gross');
     const net = result.kpis.find((k) => k.key === 'profit.net');
-    expect(gross?.availability).toBe('available'); // coverage 1 (fake)
+    expect(gross?.availability).toBe('available');
     expect(gross?.value).toBeCloseTo(400); // grossProfit(1000, 600)
-    expect(net?.availability).toBe('needs-table');
-    expect(net?.value).toBe(0);
+    expect(net?.availability).toBe('available');
+    // buildDre: 1000 − 100(comissão) − 50(frete) − 0(imposto) − 600(CMV) − 0(despesas)
+    expect(net?.value).toBeCloseTo(250);
     expect(result.costCoveragePct).toBe(1);
   });
 
-  it('sem custo (cobertura 0): lucro bruto volta a needs-table, value 0', async () => {
+  it('sem custo (cobertura 0): lucro bruto e líquido voltam a needs-table, value 0', async () => {
     const { service } = buildService({ getCogs: async () => ({ cogs: 0, coveredRevenue: 0, coveragePct: 0 }) });
     const result = await runWithTenant(TENANT, () => service.overview());
     const gross = result.kpis.find((k) => k.key === 'profit.gross');
+    const net = result.kpis.find((k) => k.key === 'profit.net');
     expect(gross?.availability).toBe('needs-table');
     expect(gross?.value).toBe(0);
+    expect(net?.availability).toBe('needs-table');
+    expect(net?.value).toBe(0);
   });
 
   it('cacheia: segunda chamada não consulta a porta novamente', async () => {

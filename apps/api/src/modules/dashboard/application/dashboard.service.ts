@@ -13,6 +13,7 @@ import {
   computeTrend,
   grossProfit,
   grossMarginPct,
+  buildDre,
   rangeDays,
   type KpiKey,
   type KpiValue,
@@ -107,18 +108,29 @@ export class DashboardService {
     const prevMonth = previousOf(mtd);
 
     return this.cached('overview', TTL.overview, { d: today.from }, async () => {
-      const [rToday, rPrevDay, rMonth, rPrevMonth, inv, cogs] = await Promise.all([
+      const [rToday, rPrevDay, rMonth, rPrevMonth, inv, cogs, taxResult, opex] = await Promise.all([
         this.query.getRevenue(today),
         this.query.getRevenue(prevDay),
         this.query.getRevenue(mtd),
         this.query.getRevenue(prevMonth),
         this.query.getInventorySummary(DEFAULT_ALERT_RULES.lowStockThreshold),
         this.query.getCogs(mtd),
+        this.query.getTaxes(mtd),
+        this.query.getOperatingExpenses(mtd),
       ]);
 
       const ticket = averageTicket(rMonth.revenue, rMonth.orders);
       const ticketPrev = averageTicket(rPrevMonth.revenue, rPrevMonth.orders);
       const hasCost = cogs.coveragePct > 0;
+      // Mesma função pura do /finance/dre → lucro líquido bate com o DRE.
+      const dre = buildDre({
+        grossRevenue: rMonth.revenue,
+        commission: rMonth.commission,
+        freight: rMonth.freight,
+        taxes: taxResult.tax,
+        cogs: cogs.cogs,
+        operatingExpenses: opex,
+      });
 
       const kpis: OverviewCard[] = [
         this.card('revenue.today', rToday.revenue, computeTrend(rToday.revenue, rPrevDay.revenue)),
@@ -129,7 +141,7 @@ export class DashboardService {
         this.card('margin.contribution', contributionMarginPct(rMonth.revenue, rMonth.commission, rMonth.freight)),
         // Lucro bruto sobre a parcela COBERTA (Fase 1). Disponível quando há custo.
         this.card('profit.gross', hasCost ? grossProfit(cogs.coveredRevenue, cogs.cogs) : 0, undefined, this.availability(hasCost)),
-        this.card('profit.net', 0), // needs-table (Fase 2: despesas + impostos)
+        this.card('profit.net', hasCost ? dre.netProfit : 0, undefined, this.availability(hasCost)),
         this.card('products.active', inv.activeProducts),
         this.card('products.withoutStock', inv.productsWithoutStock),
         this.card('inventory.criticalStock', inv.criticalStock),
@@ -155,15 +167,25 @@ export class DashboardService {
     // Lista plana de KPIs do período selecionado (catálogo completo).
     const range = resolvePeriod(period.preset, period);
     return this.cached('kpis', TTL.kpis, period, async () => {
-      const [rev, inv, cogs] = await Promise.all([
+      const [rev, inv, cogs, taxResult, opex] = await Promise.all([
         this.query.getRevenue(range),
         this.query.getInventorySummary(DEFAULT_ALERT_RULES.lowStockThreshold),
         this.query.getCogs(range),
+        this.query.getTaxes(range),
+        this.query.getOperatingExpenses(range),
       ]);
       const prev = await this.query.getRevenue(previousOf(range));
       const days = Math.max(rangeDays(range), 1);
       const hasCost = cogs.coveragePct > 0;
       const hasStockCost = inv.valueAtCostCoveragePct > 0;
+      const dre = buildDre({
+        grossRevenue: rev.revenue,
+        commission: rev.commission,
+        freight: rev.freight,
+        taxes: taxResult.tax,
+        cogs: cogs.cogs,
+        operatingExpenses: opex,
+      });
       const kpis: OverviewCard[] = [
         this.card('revenue.month', rev.revenue, computeTrend(rev.revenue, prev.revenue)),
         this.card('orders.month', rev.orders, computeTrend(rev.orders, prev.orders)),
@@ -171,6 +193,7 @@ export class DashboardService {
         this.card('sales.velocity', salesVelocity(rev.unitsSold, days)),
         this.card('margin.contribution', contributionMarginPct(rev.revenue, rev.commission, rev.freight)),
         this.card('margin.gross', hasCost ? grossMarginPct(cogs.coveredRevenue, cogs.cogs) : 0, undefined, this.availability(hasCost)),
+        this.card('margin.net', hasCost ? dre.netMarginPct : 0, undefined, this.availability(hasCost)),
         this.card('products.active', inv.activeProducts),
         this.card('products.withoutStock', inv.productsWithoutStock),
         this.card('inventory.criticalStock', inv.criticalStock),

@@ -12,6 +12,9 @@ const ITEMS: { href: string; label: string; icon: string }[] = [
   { href: '/dashboard/abc', label: 'Curva ABC', icon: '▮' },
   { href: '/dashboard/top-products', label: 'Top Produtos', icon: '★' },
   { href: '/dashboard/alerts', label: 'Alertas', icon: '⚠' },
+  { href: '/dashboard/finance/dre', label: 'DRE', icon: '∑' },
+  { href: '/dashboard/finance/expenses', label: 'Despesas', icon: '↧' },
+  { href: '/dashboard/finance/taxes', label: 'Alíquotas', icon: '％' },
 ];
 
 export function DashboardNav() {

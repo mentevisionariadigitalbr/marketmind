@@ -457,6 +457,61 @@ model ProductCost {
   @@map("product_costs")
 }
 
+enum ExpenseKind {
+  FIXED
+  VARIABLE
+}
+
+enum ExpenseRecurrence {
+  NONE
+  MONTHLY
+  YEARLY
+}
+
+/**
+ * Despesa operacional (Fase 2 — DRE). Fixa ou variável, com recorrência opcional.
+ * Recorrência mensal/anual é EXPANDIDA no período do DRE (uma linha "aluguel
+ * mensal" conta em cada mês ativo de [starts_on, ends_on]). Tenant-scoped via RLS.
+ */
+model Expense {
+  id         String            @id @default(uuid()) @db.Uuid
+  companyId  String            @map("company_id") @db.Uuid
+  category   String
+  kind       ExpenseKind       @default(VARIABLE)
+  amount     Decimal           @db.Decimal(14, 2)
+  currency   String            @default("BRL")
+  recurrence ExpenseRecurrence @default(NONE)
+  startsOn   DateTime          @map("starts_on") @db.Timestamptz(6)
+  endsOn     DateTime?         @map("ends_on") @db.Timestamptz(6)
+  note       String?
+  createdAt  DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@index([companyId])
+  @@index([companyId, startsOn])
+  @@map("expenses")
+}
+
+/**
+ * Regra de imposto (Fase 2 — DRE): alíquota efetiva por regime, opcionalmente por
+ * categoria (`category` null = padrão do regime). Configurável pelo contador; o
+ * motor puro (dashboard-core/tax.ts) resolve categoria → padrão → default. RLS.
+ */
+model TaxRule {
+  id        String    @id @default(uuid()) @db.Uuid
+  companyId String    @map("company_id") @db.Uuid
+  regime    TaxRegime
+  category  String? // null = padrão do regime
+  rate      Decimal   @db.Decimal(6, 4) // fração 0..1 (ex.: 0.0600)
+  note      String?
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@unique([companyId, regime, category])
+  @@index([companyId])
+  @@map("tax_rules")
+}
+
 /** Idempotência de webhooks: a mesma notificação não é processada duas vezes. */
 model WebhookEvent {
   id          String    @id @default(uuid()) @db.Uuid

@@ -40,5 +40,7 @@ import { MetricsController } from './presentation/http/metrics.controller';
       inject: [ConfigService],
     },
   ],
+  // Exposto para o módulo financeiro montar o DRE com a MESMA fonte do Overview.
+  exports: [DASHBOARD_QUERY_PORT],
 })
 export class DashboardModule {}
