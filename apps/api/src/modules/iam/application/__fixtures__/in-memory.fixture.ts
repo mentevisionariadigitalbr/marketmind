@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import { Company } from '../../domain/entities/company.entity';
 import { User } from '../../domain/entities/user.entity';
-import { CompanyRepository, CreateCompanyData } from '../../domain/ports/company.repository';
-import { CreateUserData, UserRepository } from '../../domain/ports/user.repository';
+import { CompanyRepository, CreateCompanyData, UpdateCompanyData } from '../../domain/ports/company.repository';
+import { CreateUserData, UserRepository, UserSummary } from '../../domain/ports/user.repository';
+import { UserRole } from '../../domain/entities/user.entity';
 import {
   CreateRefreshTokenData,
   RefreshTokenRecord,
@@ -41,6 +42,20 @@ export class InMemoryCompanyRepository implements CompanyRepository {
 
   async findById(id: string): Promise<Company | null> {
     return this.items.find((c) => c.id === id) ?? null;
+  }
+
+  async update(id: string, data: UpdateCompanyData): Promise<Company> {
+    const index = this.items.findIndex((c) => c.id === id);
+    const current = this.items[index].toJSON();
+    const updated = new Company({
+      ...current,
+      name: data.name ?? current.name,
+      taxId: data.taxId !== undefined ? data.taxId : current.taxId,
+      taxRegime: data.taxRegime ?? current.taxRegime,
+      updatedAt: new Date(),
+    });
+    this.items[index] = updated;
+    return updated;
   }
 }
 
@@ -88,12 +103,70 @@ export class InMemoryUserRepository implements UserRepository {
       passwordHash: data.passwordHash ?? null,
       googleId: data.googleId ?? null,
       role: data.role ?? 'OWNER',
-      status: 'ACTIVE',
+      status: data.status ?? 'ACTIVE',
       createdAt: now,
       updatedAt: now,
     });
     this.items.push(user);
     return user;
+  }
+
+  private readonly invites = new Map<string, { tokenHash: string; expiresAt: Date }>();
+
+  private replace(
+    userId: string,
+    patch: Partial<{ name: string; passwordHash: string | null; role: UserRole; status: 'ACTIVE' | 'INVITED' | 'DISABLED' }>,
+  ): User {
+    const index = this.items.findIndex((u) => u.id === userId);
+    const c = this.items[index];
+    const updated = new User({
+      id: c.id,
+      companyId: c.companyId,
+      name: patch.name ?? c.name,
+      email: c.email,
+      passwordHash: patch.passwordHash !== undefined ? patch.passwordHash : c.passwordHash,
+      googleId: c.googleId,
+      role: patch.role ?? c.role,
+      status: patch.status ?? c.status,
+      createdAt: c.createdAt,
+      updatedAt: new Date(),
+    });
+    this.items[index] = updated;
+    return updated;
+  }
+
+  async updateProfile(userId: string, data: { name: string }): Promise<User> {
+    return this.replace(userId, { name: data.name });
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    this.replace(userId, { passwordHash });
+  }
+
+  async listByCompany(companyId: string): Promise<UserSummary[]> {
+    return this.items
+      .filter((u) => u.companyId === companyId)
+      .map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, status: u.status }));
+  }
+
+  async updateRole(userId: string, role: UserRole): Promise<User> {
+    return this.replace(userId, { role });
+  }
+
+  async setInvite(userId: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    this.invites.set(userId, { tokenHash, expiresAt });
+  }
+
+  async findInviteByTokenHash(tokenHash: string): Promise<{ userId: string; expiresAt: Date } | null> {
+    for (const [userId, inv] of this.invites) {
+      if (inv.tokenHash === tokenHash) return { userId, expiresAt: inv.expiresAt };
+    }
+    return null;
+  }
+
+  async activateFromInvite(userId: string, passwordHash: string): Promise<void> {
+    this.replace(userId, { passwordHash, status: 'ACTIVE' });
+    this.invites.delete(userId);
   }
 }
 
@@ -198,6 +271,10 @@ export class InMemoryRbacRepository implements RbacRepository {
     const set = this.assignments.get(userId) ?? new Set<string>();
     set.add(roleName);
     this.assignments.set(userId, set);
+  }
+
+  async setSystemRole(userId: string, roleName: string): Promise<void> {
+    this.assignments.set(userId, new Set([roleName]));
   }
 
   async listRoles(): Promise<RoleSummary[]> {

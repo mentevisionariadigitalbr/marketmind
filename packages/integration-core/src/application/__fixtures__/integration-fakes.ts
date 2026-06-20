@@ -1,6 +1,7 @@
 import {
   MarketplaceAccount,
   MarketplaceAccountRepository,
+  MarketplaceAccountSummary,
   UpdateTokensData,
   UpsertAccountData,
 } from '../../domain/ports/marketplace-account.repository';
@@ -43,6 +44,20 @@ export class FakeMarketplaceAccountRepository implements MarketplaceAccountRepos
   }
   async findByExternalUserId(externalUserId: string): Promise<MarketplaceAccount[]> {
     return this.accounts.filter((a) => a.externalUserId === externalUserId);
+  }
+  async listByCompany(companyId: string): Promise<MarketplaceAccountSummary[]> {
+    return this.accounts
+      .filter((a) => a.companyId === companyId)
+      .map((a) => ({
+        id: a.id,
+        marketplaceCode: 'MERCADO_LIVRE',
+        marketplaceName: 'Mercado Livre',
+        externalUserId: a.externalUserId,
+        nickname: a.nickname,
+        status: a.status,
+        tokenExpiresAt: a.tokenExpiresAt,
+        lastSyncedAt: this.syncedAt ?? null,
+      }));
   }
   async listConnected(): Promise<MarketplaceAccount[]> {
     return this.accounts.filter((a) => a.status === 'CONNECTED');

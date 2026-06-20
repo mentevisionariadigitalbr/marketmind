@@ -27,3 +27,9 @@ export class UserInactiveError extends ApplicationError {
     super('USER_INACTIVE', 'Usuário inativo.');
   }
 }
+
+export class InvalidInviteError extends ApplicationError {
+  constructor() {
+    super('INVALID_INVITE', 'Convite inválido ou expirado.');
+  }
+}

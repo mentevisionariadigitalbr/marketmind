@@ -20,6 +20,9 @@ export interface RbacRepository {
   /** Atribui um papel de sistema (companyId = null) ao usuário. Idempotente. */
   assignSystemRole(userId: string, roleName: string): Promise<void>;
 
+  /** Define o ÚNICO papel de sistema do usuário (substitui os existentes). */
+  setSystemRole(userId: string, roleName: string): Promise<void>;
+
   /** Papéis disponíveis para a empresa (sistema + personalizados). */
   listRoles(companyId: string): Promise<RoleSummary[]>;
 }

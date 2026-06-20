@@ -8,6 +8,7 @@ import { IntegrationController } from './presentation/http/integration.controlle
 
 import { GetMercadoLivreAuthUrlUseCase } from '@marketmind/integration-core';
 import { ConnectMercadoLivreUseCase } from '@marketmind/integration-core';
+import { ListMarketplaceAccountsUseCase } from '@marketmind/integration-core';
 import { SyncOrdersUseCase } from '@marketmind/integration-core';
 import { SyncProductsUseCase } from '@marketmind/integration-core';
 import { SyncVariationsUseCase } from '@marketmind/integration-core';
@@ -40,6 +41,7 @@ import { OAuthStateService } from '@marketmind/integration-core';
   providers: [
     GetMercadoLivreAuthUrlUseCase,
     ConnectMercadoLivreUseCase,
+    ListMarketplaceAccountsUseCase,
     SyncOrdersUseCase,
     SyncProductsUseCase,
     SyncVariationsUseCase,

@@ -7,6 +7,7 @@ import { parseDurationMs } from '../../shared/util/duration';
 
 import { AuthController } from './presentation/http/auth.controller';
 import { RolesController } from './presentation/http/roles.controller';
+import { CompanyController } from './presentation/http/company.controller';
 import { JwtAuthGuard } from './presentation/http/jwt-auth.guard';
 import { PermissionsGuard } from './presentation/http/permissions.guard';
 
@@ -17,6 +18,13 @@ import { GetMeUseCase } from './application/use-cases/get-me.use-case';
 import { LogoutUseCase } from './application/use-cases/logout.use-case';
 import { ListRolesUseCase } from './application/use-cases/list-roles.use-case';
 import { GoogleSignInUseCase } from './application/use-cases/google-sign-in.use-case';
+import { UpdateCompanyUseCase } from './application/use-cases/update-company.use-case';
+import { UpdateProfileUseCase } from './application/use-cases/update-profile.use-case';
+import { ChangePasswordUseCase } from './application/use-cases/change-password.use-case';
+import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
+import { InviteMemberUseCase } from './application/use-cases/invite-member.use-case';
+import { AssignRoleUseCase } from './application/use-cases/assign-role.use-case';
+import { AcceptInviteUseCase } from './application/use-cases/accept-invite.use-case';
 import { IssueTokensService } from './application/services/issue-tokens.service';
 import { REFRESH_TTL_MS } from './application/config-tokens';
 
@@ -39,7 +47,7 @@ import { GoogleTokenInfoVerifier } from './infrastructure/security/google-tokeni
 
 @Module({
   imports: [JwtModule.register({})],
-  controllers: [AuthController, RolesController],
+  controllers: [AuthController, RolesController, CompanyController],
   providers: [
     SignUpUseCase,
     SignInUseCase,
@@ -48,6 +56,13 @@ import { GoogleTokenInfoVerifier } from './infrastructure/security/google-tokeni
     LogoutUseCase,
     ListRolesUseCase,
     GoogleSignInUseCase,
+    UpdateCompanyUseCase,
+    UpdateProfileUseCase,
+    ChangePasswordUseCase,
+    ListUsersUseCase,
+    InviteMemberUseCase,
+    AssignRoleUseCase,
+    AcceptInviteUseCase,
     IssueTokensService,
     JwtAuthGuard,
     PermissionsGuard,

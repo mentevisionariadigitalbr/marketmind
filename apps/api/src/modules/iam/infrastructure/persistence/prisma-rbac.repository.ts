@@ -47,6 +47,21 @@ export class PrismaRbacRepository implements RbacRepository {
     });
   }
 
+  async setSystemRole(userId: string, roleName: string): Promise<void> {
+    const role = await this.prisma.db.role.findFirst({
+      where: { name: roleName, companyId: null, isSystem: true },
+      select: { id: true },
+    });
+    if (!role) {
+      throw new NotFoundError(`Papel de sistema "${roleName}"`);
+    }
+    // Substitui: remove os papéis de sistema atuais e atribui apenas o novo.
+    await this.prisma.runInTransaction(async () => {
+      await this.prisma.db.userRoleAssignment.deleteMany({ where: { userId } });
+      await this.prisma.db.userRoleAssignment.create({ data: { userId, roleId: role.id } });
+    });
+  }
+
   async listRoles(companyId: string): Promise<RoleSummary[]> {
     const roles = await this.prisma.db.role.findMany({
       where: { OR: [{ companyId }, { companyId: null }] },
