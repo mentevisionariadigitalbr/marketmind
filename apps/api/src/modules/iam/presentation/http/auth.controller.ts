@@ -18,11 +18,14 @@ import { SignUpDto } from './dto/sign-up.dto';
 import { SignInDto } from './dto/sign-in.dto';
 import { RefreshDto } from './dto/refresh.dto';
 import { GoogleAuthDto } from './dto/google-auth.dto';
+import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { CurrentUser } from './current-user.decorator';
 import { AuditAction } from '../../../../shared/audit/audit-action.decorator';
 import type { AccessClaims } from '../../domain/ports/token-service.port';
 
+// Limite estrito anti-brute-force nas rotas de autenticação (Sprint 3.2).
+@Throttle({ default: { limit: 20, ttl: 60_000 } })
 @Controller('auth')
 export class AuthController {
   constructor(

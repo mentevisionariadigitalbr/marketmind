@@ -1,5 +1,6 @@
 import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 
 import { JwtAuthGuard } from '../../../iam/presentation/http/jwt-auth.guard';
 import { PermissionsGuard } from '../../../iam/presentation/http/permissions.guard';
@@ -28,6 +29,7 @@ function period(q: PeriodQueryDto): PeriodInput {
 
 @ApiTags('Dashboard')
 @ApiBearerAuth()
+@Throttle({ default: { limit: 120, ttl: 60_000 } })
 @Controller('dashboard')
 @UseGuards(JwtAuthGuard, PermissionsGuard)
 @RequirePermissions(PERMISSIONS.DASHBOARD_READ)

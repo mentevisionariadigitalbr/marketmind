@@ -1,4 +1,5 @@
 import { Body, Controller, Get, HttpCode, Post, Query, UseGuards } from '@nestjs/common';
+import { SkipThrottle, Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../../iam/presentation/http/jwt-auth.guard';
 import { PermissionsGuard } from '../../../iam/presentation/http/permissions.guard';
 import { RequirePermissions } from '../../../iam/presentation/http/require-permissions.decorator';
@@ -17,6 +18,7 @@ import {
 import { OAuthStateService } from '@marketmind/integration-core';
 import { SyncOrdersDto } from './dto/sync-orders.dto';
 
+@Throttle({ default: { limit: 60, ttl: 60_000 } })
 @Controller('integrations/mercado-livre')
 export class IntegrationController {
   constructor(
@@ -55,8 +57,11 @@ export class IntegrationController {
     return this.syncOrders.execute({ accountId: dto.accountId, limit: dto.limit });
   }
 
-  /** Webhook do ML: responde rápido + idempotente (público, sem guard). */
+  /** Webhook do ML: responde rápido + idempotente (público, sem guard).
+   *  Sem rate-limit: notificações externas legítimas não podem ser descartadas
+   *  (idempotência já protege contra duplicatas). */
   @Post('webhook')
+  @SkipThrottle()
   @HttpCode(200)
   async webhook(@Body() notification: MlWebhookNotification) {
     return this.handleWebhook.execute(notification);

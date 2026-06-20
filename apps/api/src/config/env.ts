@@ -25,6 +25,12 @@ const envSchema = z.object({
   ML_CLIENT_ID: z.string().optional(),
   ML_CLIENT_SECRET: z.string().optional(),
   ML_REDIRECT_URI: z.string().optional(),
+  // Rate limiting (Sprint 3.2). Janela em ms + limite global por IP.
+  THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(300),
+  // Restrição do /metrics (Sprint 3.2). Se definido, exige Bearer <token>.
+  // Sem token, o acesso é liberado apenas de loopback/rede interna.
+  METRICS_TOKEN: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
