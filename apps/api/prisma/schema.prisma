@@ -46,6 +46,7 @@ model Company {
   subscription        Subscription?
   invoices            Invoice[]
   usageRecords        UsageRecord[]
+  legalAcceptances    LegalAcceptance[]
 
   @@map("companies")
 }
@@ -67,10 +68,11 @@ model User {
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  company         Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  refreshTokens   RefreshToken[]
-  roleAssignments UserRoleAssignment[]
-  tokens          UserToken[]
+  company          Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  refreshTokens    RefreshToken[]
+  roleAssignments  UserRoleAssignment[]
+  tokens           UserToken[]
+  legalAcceptances LegalAcceptance[]
 
   @@index([companyId])
   @@map("users")
@@ -687,4 +689,54 @@ model UsageRecord {
 
   @@index([companyId, metric, periodTag])
   @@map("usage_records")
+}
+
+// ─────────────────────────────── Legal & LGPD (Fase 6) ───────────────────────────────
+
+enum LegalDocumentType {
+  TERMS
+  PRIVACY
+}
+
+/** Aceite versionado de documentos legais (prova de consentimento). RLS por company. */
+model LegalAcceptance {
+  id           String            @id @default(uuid()) @db.Uuid
+  companyId    String            @map("company_id") @db.Uuid
+  userId       String            @map("user_id") @db.Uuid
+  documentType LegalDocumentType @map("document_type")
+  version      String
+  ip           String?
+  userAgent    String?           @map("user_agent")
+  acceptedAt   DateTime          @default(now()) @map("accepted_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, documentType])
+  @@index([companyId])
+  @@map("legal_acceptances")
+}
+
+enum DataSubjectRequestType {
+  EXPORT
+  DELETION
+}
+
+enum DataSubjectRequestScope {
+  USER
+  COMPANY
+}
+
+/** Registro de pedidos de direitos do titular (LGPD): quem pediu, quando, tipo e
+ *  escopo. Append-only (retido como prova). RLS por company. */
+model DataSubjectRequest {
+  id        String                  @id @default(uuid()) @db.Uuid
+  companyId String                  @map("company_id") @db.Uuid
+  userId    String                  @map("user_id") @db.Uuid
+  type      DataSubjectRequestType
+  scope     DataSubjectRequestScope
+  createdAt DateTime                @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([companyId, createdAt])
+  @@map("data_subject_requests")
 }

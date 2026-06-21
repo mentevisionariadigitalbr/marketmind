@@ -14,6 +14,11 @@ import {
   UserTokenRepository,
   UserTokenType,
 } from '../../domain/ports/user-token.repository';
+import {
+  LegalAcceptanceRecord,
+  LegalAcceptanceRepository,
+  RecordAcceptanceData,
+} from '../../../legal/domain/ports/legal-acceptance.repository';
 import { PasswordHasher } from '../../domain/ports/password-hasher.port';
 import { AccessClaims, TokenService } from '../../domain/ports/token-service.port';
 import { UnitOfWork } from '../../domain/ports/unit-of-work.port';
@@ -238,6 +243,21 @@ export class InMemoryUserTokenRepository implements UserTokenRepository {
     if (!t) return null;
     t.usedAt = new Date();
     return { userId: t.userId };
+  }
+}
+
+/** Aceites legais em memória (prova de consentimento nos testes). */
+export class InMemoryLegalAcceptanceRepository implements LegalAcceptanceRepository {
+  readonly items: (RecordAcceptanceData & { acceptedAt: Date })[] = [];
+
+  async record(data: RecordAcceptanceData): Promise<void> {
+    this.items.push({ ...data, acceptedAt: new Date() });
+  }
+
+  async listForUser(userId: string): Promise<LegalAcceptanceRecord[]> {
+    return this.items
+      .filter((i) => i.userId === userId)
+      .map((i) => ({ documentType: i.documentType, version: i.version, acceptedAt: i.acceptedAt }));
   }
 }
 

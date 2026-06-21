@@ -20,6 +20,7 @@ import { IntegrationModule } from './modules/integration/integration.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { BillingModule } from './modules/billing/billing.module';
+import { PrivacyModule } from './modules/privacy/privacy.module';
 import { HealthController } from './modules/health/health.controller';
 
 @Module({
@@ -65,6 +66,7 @@ import { HealthController } from './modules/health/health.controller';
     DashboardModule,
     FinanceModule,
     BillingModule,
+    PrivacyModule,
   ],
   controllers: [HealthController],
   providers: [

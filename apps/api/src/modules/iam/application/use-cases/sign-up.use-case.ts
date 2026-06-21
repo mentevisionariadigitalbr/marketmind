@@ -11,6 +11,7 @@ import { RBAC_REPOSITORY, RbacRepository } from '../../domain/ports/rbac.reposit
 import { SYSTEM_ROLES } from '../../domain/permissions';
 import { IssueTokensService, IssueContext } from '../services/issue-tokens.service';
 import { RequestEmailVerificationUseCase } from './request-email-verification.use-case';
+import { RecordLegalAcceptanceService } from '../../../legal/application/record-legal-acceptance.service';
 import { AuthResult } from '../dto/auth-result';
 import { EmailAlreadyInUseError, ValidationError } from '../errors';
 
@@ -19,6 +20,8 @@ export interface SignUpInput extends IssueContext {
   name: string;
   email: string;
   password: string;
+  /** Aceite dos Termos de Uso e da Política de Privacidade (obrigatório). */
+  acceptedTerms: boolean;
   /** Base do link de verificação de e-mail (montada no controller). */
   verifyUrlBase?: string;
 }
@@ -37,6 +40,7 @@ export class SignUpUseCase {
     @Inject(RBAC_REPOSITORY) private readonly rbac: RbacRepository,
     private readonly issueTokens: IssueTokensService,
     private readonly requestEmailVerification: RequestEmailVerificationUseCase,
+    private readonly recordLegalAcceptance: RecordLegalAcceptanceService,
   ) {}
 
   async execute(input: SignUpInput): Promise<AuthResult> {
@@ -49,6 +53,9 @@ export class SignUpUseCase {
     }
     if (!input.companyName?.trim()) {
       throw new ValidationError('O nome da empresa é obrigatório.');
+    }
+    if (!input.acceptedTerms) {
+      throw new ValidationError('É necessário aceitar os Termos de Uso e a Política de Privacidade.');
     }
 
     const existing = await this.users.findByEmail(email);
@@ -69,6 +76,13 @@ export class SignUpUseCase {
       });
       // Quem cria a empresa é o dono: recebe o papel de sistema OWNER (RBAC).
       await this.rbac.assignSystemRole(created.id, SYSTEM_ROLES.OWNER);
+      // Aceite legal versionado (prova de consentimento) — na mesma transação.
+      await this.recordLegalAcceptance.acceptAll({
+        userId: created.id,
+        companyId: company.id,
+        ip: input.ip ?? null,
+        userAgent: input.userAgent ?? null,
+      });
       return created;
     });
 

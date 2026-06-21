@@ -87,7 +87,11 @@ export class AuthController {
   @HttpCode(200)
   @AuditAction('auth.google')
   async google(@Body() dto: GoogleAuthDto, @Req() req: Request) {
-    return this.googleSignIn.execute({ idToken: dto.idToken, ...this.context(req) });
+    return this.googleSignIn.execute({
+      idToken: dto.idToken,
+      acceptedTerms: dto.acceptedTerms,
+      ...this.context(req),
+    });
   }
 
   @Post('logout')

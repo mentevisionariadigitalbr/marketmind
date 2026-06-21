@@ -2,12 +2,13 @@ import { redirect } from 'next/navigation';
 import { getSession } from '@/lib/session';
 import { updateCompanyAction, updateProfileAction, changePasswordAction } from '@/lib/settings-actions';
 import { Card } from '@/components/dashboard/primitives';
+import { DeleteAccountForm } from '@/components/delete-account-form';
 
 export const dynamic = 'force-dynamic';
 
 const REGIMES = ['SIMPLES_NACIONAL', 'LUCRO_PRESUMIDO', 'LUCRO_REAL', 'MEI'];
 
-export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pwd?: string }> }) {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ saved?: string; pwd?: string; privacy?: string }> }) {
   const session = await getSession();
   if (!session) redirect('/login');
   const sp = await searchParams;
@@ -24,6 +25,7 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
       {sp.saved === 'profile' && <Banner ok>Perfil atualizado.</Banner>}
       {sp.pwd === 'ok' && <Banner ok>Senha alterada com sucesso.</Banner>}
       {(sp.saved === 'error' || sp.pwd === 'error') && <Banner>Não foi possível salvar. Verifique os dados/permissão.</Banner>}
+      {sp.privacy === 'delete_error' && <Banner>Não foi possível excluir a conta. Confirme digitando EXCLUIR.</Banner>}
 
       <Card title="Empresa">
         {isOwner ? (
@@ -64,6 +66,31 @@ export default async function SettingsPage({ searchParams }: { searchParams: Pro
           <Field label="Nova senha (mín. 8)" name="newPassword" type="password" />
           <Submit>Trocar senha</Submit>
         </form>
+      </Card>
+
+      <Card title="Privacidade e meus dados">
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm text-slate-500">
+              Baixe uma cópia dos seus dados pessoais (perfil, sessões, auditoria e aceites) em JSON.
+            </p>
+            <a
+              href="/api/privacy/export"
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Exportar meus dados
+            </a>
+          </div>
+          <hr className="border-slate-100" />
+          <div>
+            <h3 className="text-sm font-semibold text-slate-800">Excluir conta</h3>
+            <p className="mb-3 text-sm text-slate-500">
+              Em conformidade com a LGPD. Veja a{' '}
+              <a href="/legal/privacy" target="_blank" className="font-medium text-brand hover:underline">Política de Privacidade</a>.
+            </p>
+            <DeleteAccountForm isOwner={isOwner} />
+          </div>
+        </div>
       </Card>
     </div>
   );

@@ -61,6 +61,13 @@ isolamento multi-tenant verificável e CI. A construção segue o
   marketplace → HTTP 402; bloqueio em trial expirado/inadimplência) e banner no app. Tela
   `/dashboard/settings/billing` (planos, assinar, portal). Provedor de Pix/boleto (2º adapter)
   fica para fase seguinte.
+- ✅ **Legal & LGPD (Fase 6)**: Termos/Privacidade/Cookies versionados (`/legal/*`) com
+  **aceite registrado no cadastro** (`legal_acceptances` + RLS, versão/data/IP) — exigido
+  no signup por senha e Google. **Banner de cookies** (necessários). **Direitos do titular**:
+  `GET /privacy/export` (exporta os dados em JSON) e `POST /privacy/delete-account` (exclusão
+  imediata — OWNER apaga a empresa e purga o negócio, demais anonimizam só a si; **retém
+  faturas/assinaturas por obrigação fiscal**), com `data_subject_requests` (RLS) registrando
+  cada pedido. Registro de tratamento e base legal em [`docs/lgpd.md`](docs/lgpd.md).
 - ✅ **`apps/web`** (Next.js 15 / React 19): login, cadastro, onboarding e dashboard inicial,
   com sessão em cookies httpOnly e proteção de rotas por middleware.
 - ✅ **CI** (`.github/workflows/ci.yml`): Postgres de serviço, lint, typecheck, testes

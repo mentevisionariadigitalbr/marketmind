@@ -3,7 +3,7 @@ import { apiFetch, AuthResponse, readError } from '@/lib/api';
 import { setSessionCookies } from '@/lib/session';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const body = (await req.json()) as { idToken?: string };
+  const body = (await req.json()) as { idToken?: string; acceptedTerms?: boolean };
   const res = await apiFetch('/auth/google', { method: 'POST', body: JSON.stringify(body) });
 
   if (!res.ok) {

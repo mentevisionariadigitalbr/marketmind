@@ -2,7 +2,7 @@ import { Suspense } from 'react';
 import Link from 'next/link';
 import { LoginForm } from './login-form';
 
-export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string }> }) {
+export default async function LoginPage({ searchParams }: { searchParams: Promise<{ reset?: string; deleted?: string }> }) {
   const sp = await searchParams;
   return (
     <div>
@@ -11,6 +11,11 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       {sp.reset && (
         <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700">
           Senha redefinida com sucesso. Faça login com a nova senha.
+        </div>
+      )}
+      {sp.deleted && (
+        <div className="mb-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-600">
+          Sua conta foi excluída. Sentiremos sua falta — obrigado por usar o MarketMind.
         </div>
       )}
       <Suspense fallback={<p className="text-sm text-slate-400">Carregando…</p>}>

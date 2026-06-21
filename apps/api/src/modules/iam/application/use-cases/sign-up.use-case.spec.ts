@@ -1,12 +1,14 @@
 import { SignUpUseCase } from './sign-up.use-case';
 import { IssueTokensService } from '../services/issue-tokens.service';
 import { RequestEmailVerificationUseCase } from './request-email-verification.use-case';
+import { RecordLegalAcceptanceService } from '../../../legal/application/record-legal-acceptance.service';
 import { EmailAlreadyInUseError, ValidationError } from '../errors';
 import {
   FakePasswordHasher,
   FakeTokenService,
   FakeUnitOfWork,
   InMemoryCompanyRepository,
+  InMemoryLegalAcceptanceRepository,
   InMemoryRbacRepository,
   InMemoryRefreshTokenRepository,
   InMemoryUserRepository,
@@ -21,6 +23,7 @@ describe('SignUpUseCase', () => {
   let userTokens: InMemoryUserTokenRepository;
   let rbac: InMemoryRbacRepository;
   let email: NoopEmailSender;
+  let legal: InMemoryLegalAcceptanceRepository;
   let useCase: SignUpUseCase;
 
   beforeEach(() => {
@@ -30,6 +33,7 @@ describe('SignUpUseCase', () => {
     userTokens = new InMemoryUserTokenRepository();
     rbac = new InMemoryRbacRepository();
     email = new NoopEmailSender();
+    legal = new InMemoryLegalAcceptanceRepository();
     const tokens = new FakeTokenService();
     const issueTokens = new IssueTokensService(tokens, refreshTokens, 7 * 24 * 60 * 60 * 1000, rbac);
     const requestVerification = new RequestEmailVerificationUseCase(users, userTokens, tokens, email);
@@ -41,6 +45,7 @@ describe('SignUpUseCase', () => {
       rbac,
       issueTokens,
       requestVerification,
+      new RecordLegalAcceptanceService(legal),
     );
   });
 
@@ -49,6 +54,7 @@ describe('SignUpUseCase', () => {
     name: 'Ricardo',
     email: 'Ricardo@Example.com',
     password: 'SenhaForte1',
+    acceptedTerms: true,
   };
 
   it('cria empresa + usuário e retorna tokens', async () => {
@@ -68,6 +74,16 @@ describe('SignUpUseCase', () => {
     const authz = await rbac.getEffectiveAuthorization(result.user.id);
     expect(authz.roles).toContain('OWNER');
     expect(authz.permissions).toContain('iam:write');
+    // aceite versionado de Termos + Privacidade registrado
+    expect(await legal.listForUser(result.user.id)).toHaveLength(2);
+  });
+
+  it('rejeita cadastro sem aceite dos Termos/Privacidade', async () => {
+    await expect(
+      useCase.execute({ ...validInput, acceptedTerms: false }),
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(companies.items).toHaveLength(0);
+    expect(users.items).toHaveLength(0);
   });
 
   it('envia verificação de e-mail quando verifyUrlBase é informado', async () => {

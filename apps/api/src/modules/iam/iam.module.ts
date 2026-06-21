@@ -4,6 +4,7 @@ import { JwtModule } from '@nestjs/jwt';
 
 import { PrismaService } from '@marketmind/kernel';
 import { parseDurationMs } from '../../shared/util/duration';
+import { LegalModule } from '../legal/legal.module';
 
 import { AuthController } from './presentation/http/auth.controller';
 import { RolesController } from './presentation/http/roles.controller';
@@ -52,7 +53,7 @@ import { JwtTokenService } from './infrastructure/security/jwt-token.service';
 import { GoogleTokenInfoVerifier } from './infrastructure/security/google-tokeninfo-verifier';
 
 @Module({
-  imports: [JwtModule.register({})],
+  imports: [JwtModule.register({}), LegalModule],
   controllers: [AuthController, RolesController, CompanyController],
   providers: [
     SignUpUseCase,
