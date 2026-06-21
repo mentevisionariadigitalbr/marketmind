@@ -9,6 +9,9 @@ const STATUS_BY_CODE: Record<string, number> = {
   INVALID_REFRESH_TOKEN: HttpStatus.UNAUTHORIZED,
   USER_INACTIVE: HttpStatus.FORBIDDEN,
   NOT_FOUND: HttpStatus.NOT_FOUND,
+  PLAN_LIMIT_EXCEEDED: HttpStatus.PAYMENT_REQUIRED,
+  SUBSCRIPTION_REQUIRED: HttpStatus.PAYMENT_REQUIRED,
+  BILLING_NOT_CONFIGURED: HttpStatus.SERVICE_UNAVAILABLE,
 };
 
 /** Traduz erros de aplicação (framework-free) em respostas HTTP coerentes. */

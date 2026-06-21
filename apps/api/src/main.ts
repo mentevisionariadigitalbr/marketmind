@@ -7,7 +7,9 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  // rawBody: true mantém o corpo cru (Buffer) em req.rawBody — necessário para a
+  // verificação de assinatura do webhook de cobrança (Stripe).
+  const app = await NestFactory.create(AppModule, { bufferLogs: false, rawBody: true });
   const config = app.get(ConfigService);
 
   // Cabeçalhos de segurança (Sprint 3.2). CSP permissiva o suficiente para o

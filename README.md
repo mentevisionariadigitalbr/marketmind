@@ -49,6 +49,18 @@ isolamento multi-tenant verificável e CI. A construção segue o
   sem enumeração + `POST /auth/reset-password`, token de 1h, uso único, revoga sessões) e
   **verificação de e-mail não-bloqueante** (`POST /auth/verify-email` + `/auth/resend-verification`,
   banner no app). Telas: `/forgot-password`, `/reset-password`, `/verify-email`.
+- ✅ **Monetização — planos, pagamento e paywall (Fase 5)**: tabelas `plans` (catálogo global)
+  + `subscriptions`/`invoices`/`usage_records` com RLS por company. Provedor de pagamento
+  abstraído por porta de domínio (`PaymentProvider`); adapter **Stripe** (Checkout + Customer
+  Portal hospedados, dunning nativo) com fallback noop sem `STRIPE_SECRET_KEY`. **Trial sem
+  cartão de 14 dias** (provisionamento preguiçoso ancorado no cadastro), `GET /billing`
+  (estado/limites/uso), `POST /billing/checkout` e `/billing/portal`. **Webhooks idempotentes**
+  (`POST /billing/webhook/stripe`, assinatura verificada sobre o corpo cru, dedupe reusando
+  `webhook_events`) que ativam/rebaixam a assinatura e registram faturas. **Paywall/gating**:
+  `PlanGuard` + `EntitlementsService.assertWithinLimit/assertNotBlocked` (limite de contas de
+  marketplace → HTTP 402; bloqueio em trial expirado/inadimplência) e banner no app. Tela
+  `/dashboard/settings/billing` (planos, assinar, portal). Provedor de Pix/boleto (2º adapter)
+  fica para fase seguinte.
 - ✅ **`apps/web`** (Next.js 15 / React 19): login, cadastro, onboarding e dashboard inicial,
   com sessão em cookies httpOnly e proteção de rotas por middleware.
 - ✅ **CI** (`.github/workflows/ci.yml`): Postgres de serviço, lint, typecheck, testes

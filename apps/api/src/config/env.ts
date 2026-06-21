@@ -34,6 +34,12 @@ const envSchema = z.object({
   // E-mail transacional (Fase 4). Sem RESEND_API_KEY, usa NoopEmailSender.
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().optional(),
+  // Cobrança Stripe (Fase 5). Sem STRIPE_SECRET_KEY, usa NoopPaymentProvider
+  // (checkout/portal indisponíveis no dev). Price IDs por plano (test mode).
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_PRO: z.string().optional(),
+  STRIPE_PRICE_BUSINESS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

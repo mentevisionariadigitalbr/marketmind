@@ -22,6 +22,7 @@ const MAIN: Item[] = [
 const SETTINGS: Item[] = [
   { href: '/dashboard/settings/integrations', label: 'Integrações', icon: '🔌' },
   { href: '/dashboard/settings/team', label: 'Equipe', icon: '👥' },
+  { href: '/dashboard/settings/billing', label: 'Cobrança', icon: '💳' },
   { href: '/dashboard/settings', label: 'Configurações', icon: '⚙' },
 ];
 

@@ -23,6 +23,8 @@ export const PERMISSIONS = {
   IAM_READ: 'iam:read',
   IAM_WRITE: 'iam:write',
   AUDIT_READ: 'audit:read',
+  BILLING_READ: 'billing:read',
+  BILLING_MANAGE: 'billing:manage',
 } as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[keyof typeof PERMISSIONS];
@@ -51,6 +53,8 @@ export const PERMISSION_CATALOG: PermissionDef[] = [
   { key: PERMISSIONS.IAM_READ, description: 'Ver usuários, papéis e permissões' },
   { key: PERMISSIONS.IAM_WRITE, description: 'Convidar usuários e gerir papéis' },
   { key: PERMISSIONS.AUDIT_READ, description: 'Ver trilha de auditoria' },
+  { key: PERMISSIONS.BILLING_READ, description: 'Ver plano, assinatura e faturas' },
+  { key: PERMISSIONS.BILLING_MANAGE, description: 'Assinar, trocar plano e gerir pagamento' },
 ];
 
 export const SYSTEM_ROLES = {
@@ -67,9 +71,12 @@ const ALL_KEYS: PermissionKey[] = PERMISSION_CATALOG.map((p) => p.key);
 export const SYSTEM_ROLE_PERMISSIONS: Record<SystemRoleName, PermissionKey[]> = {
   // Dono da conta: tudo.
   OWNER: ALL_KEYS,
-  // Admin: tudo, exceto gerir papéis/usuários e dados da empresa/assinatura.
+  // Admin: tudo, exceto gerir papéis/usuários, dados da empresa e a assinatura.
   ADMIN: ALL_KEYS.filter(
-    (k) => k !== PERMISSIONS.IAM_WRITE && k !== PERMISSIONS.COMPANY_WRITE,
+    (k) =>
+      k !== PERMISSIONS.IAM_WRITE &&
+      k !== PERMISSIONS.COMPANY_WRITE &&
+      k !== PERMISSIONS.BILLING_MANAGE,
   ),
   // Membro: somente leitura operacional + uso da IA.
   MEMBER: [

@@ -9,6 +9,8 @@ import { CurrentUser } from '../../../iam/presentation/http/current-user.decorat
 import { PERMISSIONS } from '../../../iam/domain/permissions';
 import type { AccessClaims } from '../../../iam/domain/ports/token-service.port';
 import { AuditAction } from '../../../../shared/audit/audit-action.decorator';
+import { PlanGuard } from '../../../billing/presentation/http/plan.guard';
+import { EntitlementsService } from '../../../billing/application/entitlements.service';
 
 import { GetMercadoLivreAuthUrlUseCase } from '@marketmind/integration-core';
 import { ConnectMercadoLivreUseCase } from '@marketmind/integration-core';
@@ -32,13 +34,16 @@ export class IntegrationController {
     private readonly handleWebhook: HandleMercadoLivreWebhookUseCase,
     private readonly state: OAuthStateService,
     private readonly config: ConfigService,
+    private readonly entitlements: EntitlementsService,
   ) {}
 
-  /** Inicia o OAuth: devolve a URL de consentimento (state assinado com o tenant). */
+  /** Inicia o OAuth: devolve a URL de consentimento (state assinado com o tenant).
+   *  Respeita o limite de contas do plano (402 se exceder) e o paywall. */
   @Get('authorize')
   @UseGuards(JwtAuthGuard, PermissionsGuard)
   @RequirePermissions(PERMISSIONS.INTEGRATION_WRITE)
-  authorize(@CurrentUser() user: AccessClaims) {
+  async authorize(@CurrentUser() user: AccessClaims) {
+    await this.entitlements.assertWithinLimit('marketplace_accounts');
     const state = this.state.sign(user.companyId);
     return this.getAuthUrl.execute({ state });
   }
@@ -67,10 +72,11 @@ export class IntegrationController {
     }
   }
 
-  /** Dispara a sincronização de pedidos da conta (uso manual / agendado). */
+  /** Dispara a sincronização de pedidos da conta (uso manual / agendado).
+   *  Bloqueado pelo paywall quando o acesso está suspenso (trial/inadimplência). */
   @Post('sync/orders')
   @HttpCode(200)
-  @UseGuards(JwtAuthGuard, PermissionsGuard)
+  @UseGuards(JwtAuthGuard, PermissionsGuard, PlanGuard)
   @RequirePermissions(PERMISSIONS.INTEGRATION_WRITE)
   @AuditAction('integration.ml.sync_orders')
   sync(@Body() dto: SyncOrdersDto) {

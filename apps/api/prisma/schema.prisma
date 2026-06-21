@@ -43,6 +43,9 @@ model Company {
   users               User[]
   roles               Role[]
   marketplaceAccounts MarketplaceAccount[]
+  subscription        Subscription?
+  invoices            Invoice[]
+  usageRecords        UsageRecord[]
 
   @@map("companies")
 }
@@ -582,4 +585,106 @@ model Job {
   @@index([queue, status])
   @@index([companyId])
   @@map("jobs")
+}
+
+// ─────────────────────────────── Cobrança (Fase 5) ───────────────────────────────
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  INCOMPLETE
+}
+
+enum InvoiceStatus {
+  PAID
+  OPEN
+  FAILED
+  VOID
+}
+
+/** Catálogo global de planos (não tenant-scoped; semeado). Limite null = ilimitado. */
+model Plan {
+  id                     String   @id @default(uuid()) @db.Uuid
+  code                   String   @unique // FREE | PRO | BUSINESS
+  name                   String
+  priceCents             Int      @map("price_cents")
+  currency               String   @default("BRL")
+  interval               String   @default("month") // month | year
+  trialDays              Int      @default(14) @map("trial_days")
+  maxMarketplaceAccounts Int?     @map("max_marketplace_accounts")
+  maxProducts            Int?     @map("max_products")
+  historyWindowDays      Int?     @map("history_window_days")
+  stripePriceId          String?  @map("stripe_price_id")
+  active                 Boolean  @default(true)
+  createdAt              DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  subscriptions Subscription[]
+
+  @@map("plans")
+}
+
+/** Assinatura da empresa (1 por company). RLS por company. */
+model Subscription {
+  id                     String             @id @default(uuid()) @db.Uuid
+  companyId              String             @unique @map("company_id") @db.Uuid
+  planId                 String             @map("plan_id") @db.Uuid
+  status                 SubscriptionStatus @default(TRIALING)
+  provider               String? // stripe | mercadopago | ...
+  providerCustomerId     String?            @map("provider_customer_id")
+  providerSubscriptionId String?            @unique @map("provider_subscription_id")
+  trialStartedAt         DateTime?          @map("trial_started_at") @db.Timestamptz(6)
+  trialEndsAt            DateTime?          @map("trial_ends_at") @db.Timestamptz(6)
+  currentPeriodEnd       DateTime?          @map("current_period_end") @db.Timestamptz(6)
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  canceledAt             DateTime?          @map("canceled_at") @db.Timestamptz(6)
+  createdAt              DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt              DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  plan     Plan      @relation(fields: [planId], references: [id])
+  invoices Invoice[]
+
+  @@index([status])
+  @@map("subscriptions")
+}
+
+/** Fatura emitida pelo provedor de pagamento. RLS por company. */
+model Invoice {
+  id                String        @id @default(uuid()) @db.Uuid
+  companyId         String        @map("company_id") @db.Uuid
+  subscriptionId    String?       @map("subscription_id") @db.Uuid
+  provider          String
+  providerInvoiceId String?       @unique @map("provider_invoice_id")
+  amountCents       Int           @map("amount_cents")
+  currency          String        @default("BRL")
+  status            InvoiceStatus @default(OPEN)
+  paymentMethod     String?       @map("payment_method") // card | pix | boleto
+  hostedUrl         String?       @map("hosted_url")
+  issuedAt          DateTime      @default(now()) @map("issued_at") @db.Timestamptz(6)
+  paidAt            DateTime?     @map("paid_at") @db.Timestamptz(6)
+  createdAt         DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company      Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  subscription Subscription? @relation(fields: [subscriptionId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, issuedAt])
+  @@map("invoices")
+}
+
+/** Registro de uso para limites por janela/métrica. RLS por company. */
+model UsageRecord {
+  id         String   @id @default(uuid()) @db.Uuid
+  companyId  String   @map("company_id") @db.Uuid
+  metric     String // ex.: marketplace_accounts | products | ai_calls
+  value      Int
+  periodTag  String   @map("period_tag") // ex.: 2026-06 (mês de competência)
+  recordedAt DateTime @default(now()) @map("recorded_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, metric, periodTag])
+  @@map("usage_records")
 }

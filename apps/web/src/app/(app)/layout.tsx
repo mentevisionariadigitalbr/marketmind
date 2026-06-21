@@ -1,17 +1,21 @@
 import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getSession } from '@/lib/session';
+import { getBilling } from '@/lib/billing';
 import { LogoutButton } from '@/components/logout-button';
 import { EmailVerificationBanner } from '@/components/email-verification-banner';
+import { BillingBanner } from '@/components/billing-banner';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) {
     redirect('/login');
   }
+  const billing = await getBilling();
 
   return (
     <div className="min-h-screen">
+      <BillingBanner billing={billing} />
       {!session.user.emailVerifiedAt && <EmailVerificationBanner />}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
