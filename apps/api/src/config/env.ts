@@ -31,6 +31,9 @@ const envSchema = z.object({
   // Restrição do /metrics (Sprint 3.2). Se definido, exige Bearer <token>.
   // Sem token, o acesso é liberado apenas de loopback/rede interna.
   METRICS_TOKEN: z.string().optional(),
+  // E-mail transacional (Fase 4). Sem RESEND_API_KEY, usa NoopEmailSender.
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

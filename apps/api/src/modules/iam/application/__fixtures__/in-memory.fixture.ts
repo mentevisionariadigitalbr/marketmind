@@ -9,6 +9,11 @@ import {
   RefreshTokenRecord,
   RefreshTokenRepository,
 } from '../../domain/ports/refresh-token.repository';
+import {
+  IssueTokenData,
+  UserTokenRepository,
+  UserTokenType,
+} from '../../domain/ports/user-token.repository';
 import { PasswordHasher } from '../../domain/ports/password-hasher.port';
 import { AccessClaims, TokenService } from '../../domain/ports/token-service.port';
 import { UnitOfWork } from '../../domain/ports/unit-of-work.port';
@@ -86,6 +91,7 @@ export class InMemoryUserRepository implements UserRepository {
       googleId,
       role: current.role,
       status: current.status,
+      emailVerifiedAt: current.emailVerifiedAt,
       createdAt: current.createdAt,
       updatedAt: new Date(),
     });
@@ -104,6 +110,7 @@ export class InMemoryUserRepository implements UserRepository {
       googleId: data.googleId ?? null,
       role: data.role ?? 'OWNER',
       status: data.status ?? 'ACTIVE',
+      emailVerifiedAt: null,
       createdAt: now,
       updatedAt: now,
     });
@@ -115,7 +122,7 @@ export class InMemoryUserRepository implements UserRepository {
 
   private replace(
     userId: string,
-    patch: Partial<{ name: string; passwordHash: string | null; role: UserRole; status: 'ACTIVE' | 'INVITED' | 'DISABLED' }>,
+    patch: Partial<{ name: string; passwordHash: string | null; role: UserRole; status: 'ACTIVE' | 'INVITED' | 'DISABLED'; emailVerifiedAt: Date | null }>,
   ): User {
     const index = this.items.findIndex((u) => u.id === userId);
     const c = this.items[index];
@@ -128,6 +135,7 @@ export class InMemoryUserRepository implements UserRepository {
       googleId: c.googleId,
       role: patch.role ?? c.role,
       status: patch.status ?? c.status,
+      emailVerifiedAt: patch.emailVerifiedAt !== undefined ? patch.emailVerifiedAt : c.emailVerifiedAt,
       createdAt: c.createdAt,
       updatedAt: new Date(),
     });
@@ -141,6 +149,10 @@ export class InMemoryUserRepository implements UserRepository {
 
   async updatePassword(userId: string, passwordHash: string): Promise<void> {
     this.replace(userId, { passwordHash });
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    this.replace(userId, { emailVerifiedAt: new Date() });
   }
 
   async listByCompany(companyId: string): Promise<UserSummary[]> {
@@ -204,6 +216,28 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
         record.revokedAt = new Date();
       }
     }
+  }
+}
+
+/** Tokens de uso único em memória (reset/verify). */
+export class InMemoryUserTokenRepository implements UserTokenRepository {
+  readonly tokens: { userId: string; companyId: string; type: UserTokenType; tokenHash: string; expiresAt: Date; usedAt: Date | null }[] = [];
+
+  async issue(data: IssueTokenData): Promise<void> {
+    // Invalida anteriores do mesmo tipo.
+    for (let i = this.tokens.length - 1; i >= 0; i--) {
+      if (this.tokens[i].userId === data.userId && this.tokens[i].type === data.type) this.tokens.splice(i, 1);
+    }
+    this.tokens.push({ ...data, usedAt: null });
+  }
+
+  async consume(tokenHash: string, type: UserTokenType): Promise<{ userId: string } | null> {
+    const t = this.tokens.find(
+      (x) => x.tokenHash === tokenHash && x.type === type && x.usedAt === null && x.expiresAt.getTime() > Date.now(),
+    );
+    if (!t) return null;
+    t.usedAt = new Date();
+    return { userId: t.userId };
   }
 }
 

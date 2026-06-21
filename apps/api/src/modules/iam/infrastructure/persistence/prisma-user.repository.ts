@@ -12,6 +12,7 @@ interface UserRow {
   googleId: string | null;
   role: string;
   status: string;
+  emailVerifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -47,6 +48,10 @@ export class PrismaUserRepository implements UserRepository {
 
   async updatePassword(userId: string, passwordHash: string): Promise<void> {
     await this.prisma.db.user.update({ where: { id: userId }, data: { passwordHash } });
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    await this.prisma.db.user.update({ where: { id: userId }, data: { emailVerifiedAt: new Date() } });
   }
 
   async listByCompany(companyId: string): Promise<UserSummary[]> {
@@ -117,6 +122,7 @@ export class PrismaUserRepository implements UserRepository {
       googleId: row.googleId,
       role: row.role as UserRole,
       status: row.status as UserStatus,
+      emailVerifiedAt: row.emailVerifiedAt,
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
     });

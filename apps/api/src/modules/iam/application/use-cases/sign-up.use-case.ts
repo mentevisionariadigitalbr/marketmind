@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Email } from '../../domain/value-objects/email.vo';
 import {
   COMPANY_REPOSITORY,
@@ -10,6 +10,7 @@ import { UNIT_OF_WORK, UnitOfWork } from '../../domain/ports/unit-of-work.port';
 import { RBAC_REPOSITORY, RbacRepository } from '../../domain/ports/rbac.repository';
 import { SYSTEM_ROLES } from '../../domain/permissions';
 import { IssueTokensService, IssueContext } from '../services/issue-tokens.service';
+import { RequestEmailVerificationUseCase } from './request-email-verification.use-case';
 import { AuthResult } from '../dto/auth-result';
 import { EmailAlreadyInUseError, ValidationError } from '../errors';
 
@@ -18,12 +19,16 @@ export interface SignUpInput extends IssueContext {
   name: string;
   email: string;
   password: string;
+  /** Base do link de verificação de e-mail (montada no controller). */
+  verifyUrlBase?: string;
 }
 
 const MIN_PASSWORD_LENGTH = 8;
 
 @Injectable()
 export class SignUpUseCase {
+  private readonly logger = new Logger(SignUpUseCase.name);
+
   constructor(
     @Inject(UNIT_OF_WORK) private readonly uow: UnitOfWork,
     @Inject(COMPANY_REPOSITORY) private readonly companies: CompanyRepository,
@@ -31,6 +36,7 @@ export class SignUpUseCase {
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(RBAC_REPOSITORY) private readonly rbac: RbacRepository,
     private readonly issueTokens: IssueTokensService,
+    private readonly requestEmailVerification: RequestEmailVerificationUseCase,
   ) {}
 
   async execute(input: SignUpInput): Promise<AuthResult> {
@@ -70,6 +76,15 @@ export class SignUpUseCase {
       userAgent: input.userAgent,
       ip: input.ip,
     });
+
+    // Verificação de e-mail é não-bloqueante: nunca impede o cadastro.
+    if (input.verifyUrlBase) {
+      try {
+        await this.requestEmailVerification.execute({ userId: user.id, verifyUrlBase: input.verifyUrlBase });
+      } catch (err) {
+        this.logger.error(`Falha ao iniciar verificação de e-mail: ${(err as Error).message}`);
+      }
+    }
 
     return {
       user: user.toPublic(),

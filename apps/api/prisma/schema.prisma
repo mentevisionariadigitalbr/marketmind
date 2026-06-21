@@ -59,12 +59,15 @@ model User {
   // Convite por token (Fase 3): hash do token + validade. Limpos ao aceitar.
   inviteTokenHash String?  @unique @map("invite_token_hash")
   inviteExpiresAt DateTime? @map("invite_expires_at") @db.Timestamptz(6)
+  // Verificação de e-mail (Fase 4): nulo = não verificado. Não bloqueia o acesso.
+  emailVerifiedAt DateTime? @map("email_verified_at") @db.Timestamptz(6)
   createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   company         Company              @relation(fields: [companyId], references: [id], onDelete: Cascade)
   refreshTokens   RefreshToken[]
   roleAssignments UserRoleAssignment[]
+  tokens          UserToken[]
 
   @@index([companyId])
   @@map("users")
@@ -85,6 +88,32 @@ model RefreshToken {
 
   @@index([userId])
   @@map("refresh_tokens")
+}
+
+enum UserTokenType {
+  PASSWORD_RESET
+  EMAIL_VERIFICATION
+}
+
+/**
+ * Token de uso único (Fase 4): reset de senha e verificação de e-mail. Hash em
+ * repouso, validade + used_at (invalidação após uso). Tenant via RLS por company.
+ */
+model UserToken {
+  id        String        @id @default(uuid()) @db.Uuid
+  userId    String        @map("user_id") @db.Uuid
+  companyId String        @map("company_id") @db.Uuid
+  type      UserTokenType
+  tokenHash String        @unique @map("token_hash")
+  expiresAt DateTime      @map("expires_at") @db.Timestamptz(6)
+  usedAt    DateTime?     @map("used_at") @db.Timestamptz(6)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, type])
+  @@index([companyId])
+  @@map("user_tokens")
 }
 
 // ---------------------------------------------------------------------------

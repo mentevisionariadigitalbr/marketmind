@@ -31,6 +31,8 @@ export interface UserRepository {
   updateProfile(userId: string, data: { name: string }): Promise<User>;
   /** Troca o hash de senha. */
   updatePassword(userId: string, passwordHash: string): Promise<void>;
+  /** Marca o e-mail como verificado (idempotente). */
+  markEmailVerified(userId: string): Promise<void>;
   /** Membros de uma empresa (para a tela de Equipe). */
   listByCompany(companyId: string): Promise<UserSummary[]>;
   /** Atualiza o papel (legacy) do usuário — sincronizado com o RBAC. */

@@ -11,6 +11,7 @@ import { ObservableThrottlerGuard } from './shared/throttler/observable-throttle
 import { PrismaModule } from './shared/prisma/prisma.module';
 import { CryptoModule } from './shared/crypto/crypto.module';
 import { QueueModule } from './shared/queue/queue.module';
+import { MailModule } from './shared/mail/mail.module';
 import { AuditModule } from './shared/audit/audit.module';
 import { DomainExceptionFilter } from './shared/http/domain-exception.filter';
 import { TenantInterceptor } from './shared/tenant/tenant.interceptor';
@@ -56,6 +57,7 @@ import { HealthController } from './modules/health/health.controller';
     PrismaModule,
     CryptoModule,
     QueueModule,
+    MailModule,
     AuditModule,
     IamModule,
     IntegrationModule,

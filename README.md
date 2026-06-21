@@ -43,6 +43,12 @@ isolamento multi-tenant verificável e CI. A construção segue o
   rota, status, IP, user-agent, timestamp).
 - ✅ **Login social Google (OAuth2)**: `POST /auth/google` — login, vínculo de conta por e-mail
   e cadastro automático (cria empresa + usuário OWNER).
+- ✅ **E-mail transacional + recuperação de conta (Fase 4)**: provedor abstraído por porta
+  (`EmailSender`, adaptador Resend, fallback noop sem `RESEND_API_KEY`); tabela `user_tokens`
+  com RLS para tokens de uso único. **Recuperação de senha** (`POST /auth/forgot-password`
+  sem enumeração + `POST /auth/reset-password`, token de 1h, uso único, revoga sessões) e
+  **verificação de e-mail não-bloqueante** (`POST /auth/verify-email` + `/auth/resend-verification`,
+  banner no app). Telas: `/forgot-password`, `/reset-password`, `/verify-email`.
 - ✅ **`apps/web`** (Next.js 15 / React 19): login, cadastro, onboarding e dashboard inicial,
   com sessão em cookies httpOnly e proteção de rotas por middleware.
 - ✅ **CI** (`.github/workflows/ci.yml`): Postgres de serviço, lint, typecheck, testes

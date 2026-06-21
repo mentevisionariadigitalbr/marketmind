@@ -10,6 +10,7 @@ export interface UserProps {
   googleId: string | null;
   role: UserRole;
   status: UserStatus;
+  emailVerifiedAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -41,6 +42,9 @@ export class User {
   get status(): UserStatus {
     return this.props.status;
   }
+  get emailVerifiedAt(): Date | null {
+    return this.props.emailVerifiedAt;
+  }
   get createdAt(): Date {
     return this.props.createdAt;
   }
@@ -54,6 +58,10 @@ export class User {
 
   get canAuthenticateWithPassword(): boolean {
     return this.props.passwordHash !== null;
+  }
+
+  get isEmailVerified(): boolean {
+    return this.props.emailVerifiedAt !== null;
   }
 
   /** Representação segura (sem hash de senha) para respostas HTTP. */

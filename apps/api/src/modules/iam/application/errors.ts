@@ -33,3 +33,15 @@ export class InvalidInviteError extends ApplicationError {
     super('INVALID_INVITE', 'Convite inválido ou expirado.');
   }
 }
+
+export class InvalidResetTokenError extends ApplicationError {
+  constructor() {
+    super('INVALID_RESET_TOKEN', 'Link de redefinição inválido ou expirado.');
+  }
+}
+
+export class InvalidVerificationTokenError extends ApplicationError {
+  constructor() {
+    super('INVALID_VERIFICATION_TOKEN', 'Link de verificação inválido ou expirado.');
+  }
+}

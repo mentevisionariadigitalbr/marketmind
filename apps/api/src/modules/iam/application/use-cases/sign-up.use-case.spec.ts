@@ -1,5 +1,6 @@
 import { SignUpUseCase } from './sign-up.use-case';
 import { IssueTokensService } from '../services/issue-tokens.service';
+import { RequestEmailVerificationUseCase } from './request-email-verification.use-case';
 import { EmailAlreadyInUseError, ValidationError } from '../errors';
 import {
   FakePasswordHasher,
@@ -9,26 +10,29 @@ import {
   InMemoryRbacRepository,
   InMemoryRefreshTokenRepository,
   InMemoryUserRepository,
+  InMemoryUserTokenRepository,
 } from '../__fixtures__/in-memory.fixture';
+import { NoopEmailSender } from '../../../../shared/mail/noop-email-sender';
 
 describe('SignUpUseCase', () => {
   let companies: InMemoryCompanyRepository;
   let users: InMemoryUserRepository;
   let refreshTokens: InMemoryRefreshTokenRepository;
+  let userTokens: InMemoryUserTokenRepository;
   let rbac: InMemoryRbacRepository;
+  let email: NoopEmailSender;
   let useCase: SignUpUseCase;
 
   beforeEach(() => {
     companies = new InMemoryCompanyRepository();
     users = new InMemoryUserRepository();
     refreshTokens = new InMemoryRefreshTokenRepository();
+    userTokens = new InMemoryUserTokenRepository();
     rbac = new InMemoryRbacRepository();
-    const issueTokens = new IssueTokensService(
-      new FakeTokenService(),
-      refreshTokens,
-      7 * 24 * 60 * 60 * 1000,
-      rbac,
-    );
+    email = new NoopEmailSender();
+    const tokens = new FakeTokenService();
+    const issueTokens = new IssueTokensService(tokens, refreshTokens, 7 * 24 * 60 * 60 * 1000, rbac);
+    const requestVerification = new RequestEmailVerificationUseCase(users, userTokens, tokens, email);
     useCase = new SignUpUseCase(
       new FakeUnitOfWork(),
       companies,
@@ -36,6 +40,7 @@ describe('SignUpUseCase', () => {
       new FakePasswordHasher(),
       rbac,
       issueTokens,
+      requestVerification,
     );
   });
 
@@ -63,6 +68,20 @@ describe('SignUpUseCase', () => {
     const authz = await rbac.getEffectiveAuthorization(result.user.id);
     expect(authz.roles).toContain('OWNER');
     expect(authz.permissions).toContain('iam:write');
+  });
+
+  it('envia verificação de e-mail quando verifyUrlBase é informado', async () => {
+    await useCase.execute({ ...validInput, verifyUrlBase: 'http://app/verify-email' });
+    expect(userTokens.tokens).toHaveLength(1);
+    expect(userTokens.tokens[0].type).toBe('EMAIL_VERIFICATION');
+    expect(email.sent).toHaveLength(1);
+    expect(email.sent[0].text).toContain('http://app/verify-email?token=');
+  });
+
+  it('não envia verificação sem verifyUrlBase (não-bloqueante)', async () => {
+    await useCase.execute(validInput);
+    expect(userTokens.tokens).toHaveLength(0);
+    expect(email.sent).toHaveLength(0);
   });
 
   it('rejeita e-mail já cadastrado', async () => {

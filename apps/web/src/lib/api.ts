@@ -11,6 +11,8 @@ export interface PublicUser {
   email: string;
   role: string;
   status: string;
+  /** ISO date quando o e-mail foi verificado; null se ainda não verificado. */
+  emailVerifiedAt: string | null;
 }
 
 export interface AuthResponse {

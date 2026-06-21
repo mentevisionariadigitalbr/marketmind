@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import Link from 'next/link';
 import { getSession } from '@/lib/session';
 import { LogoutButton } from '@/components/logout-button';
+import { EmailVerificationBanner } from '@/components/email-verification-banner';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -11,6 +12,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen">
+      {!session.user.emailVerifiedAt && <EmailVerificationBanner />}
       <header className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-3">
