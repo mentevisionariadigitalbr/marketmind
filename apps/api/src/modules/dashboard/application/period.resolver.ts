@@ -1,8 +1,8 @@
 import type { DateRange } from '@marketmind/dashboard-core';
 
-export type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d' | 'today' | 'mtd' | 'ytd' | 'custom';
+export type PeriodPreset = '7d' | '15d' | '30d' | '90d' | '180d' | '365d' | 'today' | 'mtd' | 'ytd' | 'custom';
 
-const PRESET_DAYS: Record<string, number> = { '7d': 7, '30d': 30, '90d': 90, '180d': 180, '365d': 365 };
+const PRESET_DAYS: Record<string, number> = { '7d': 7, '15d': 15, '30d': 30, '90d': 90, '180d': 180, '365d': 365 };
 
 /**
  * Resolve presets/custom para um [from, to). `now` injetável (testes determinísticos).

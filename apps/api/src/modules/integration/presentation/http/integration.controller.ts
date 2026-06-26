@@ -80,7 +80,7 @@ export class IntegrationController {
   @RequirePermissions(PERMISSIONS.INTEGRATION_WRITE)
   @AuditAction('integration.ml.sync_orders')
   sync(@Body() dto: SyncOrdersDto) {
-    return this.syncOrders.execute({ accountId: dto.accountId, limit: dto.limit });
+    return this.syncOrders.execute({ accountId: dto.accountId, limit: dto.limit, offset: dto.offset });
   }
 
   /** Webhook do ML: responde rápido + idempotente (público, sem guard). */

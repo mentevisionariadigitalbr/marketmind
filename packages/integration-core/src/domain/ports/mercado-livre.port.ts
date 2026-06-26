@@ -95,6 +95,8 @@ export interface MercadoLivreApi {
     offset?: number;
     limit?: number;
     status?: string;
+    /** Ordenação ML (ex.: 'date_desc') — por data, para uma janela cronológica correta. */
+    sort?: string;
   }): Promise<MlOrderSearch>;
   /** Ids dos anúncios de um vendedor (paginado). */
   getItemIds(params: {

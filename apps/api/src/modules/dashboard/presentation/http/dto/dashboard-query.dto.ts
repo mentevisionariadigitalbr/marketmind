@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
-export const PERIOD_PRESETS = ['7d', '30d', '90d', '180d', '365d', 'today', 'mtd', 'ytd', 'custom'] as const;
+export const PERIOD_PRESETS = ['7d', '15d', '30d', '90d', '180d', '365d', 'today', 'mtd', 'ytd', 'custom'] as const;
 export type PeriodPresetDto = (typeof PERIOD_PRESETS)[number];
 
 /** Filtros de período comuns a todos os endpoints. */

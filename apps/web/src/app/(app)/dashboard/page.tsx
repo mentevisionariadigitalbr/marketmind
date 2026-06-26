@@ -1,27 +1,39 @@
 import Link from 'next/link';
-import { getOverview, getTimeline, getTopProducts, getAbc } from '@/lib/dashboard';
+import { getKpis, getTimeline, getTopProducts, getAbc, type PeriodPreset } from '@/lib/dashboard';
 import { MetricCard, Card, EmptyState, Badge } from '@/components/dashboard/primitives';
+import { PeriodSelector } from '@/components/dashboard/period-selector';
 import { LineChart, BarChart } from '@/components/dashboard/charts';
 import { formatBRL, formatPercent } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
-export default async function OverviewPage() {
+const PERIODS = [
+  { value: '7d', label: '7 dias' },
+  { value: '15d', label: '15 dias' },
+  { value: '30d', label: '30 dias' },
+  { value: 'mtd', label: 'Mês' },
+];
+const PERIOD_LABEL: Record<string, string> = { '7d': 'últimos 7 dias', '15d': 'últimos 15 dias', '30d': 'últimos 30 dias', mtd: 'mês atual' };
+
+export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ preset?: string }> }) {
+  const sp = await searchParams;
+  const preset = (PERIODS.some((p) => p.value === sp.preset) ? sp.preset : '30d') as PeriodPreset;
+
   const [overview, timeline, top, abc] = await Promise.all([
-    getOverview(),
-    getTimeline('30d'),
-    getTopProducts('30d', 5),
-    getAbc('30d'),
+    getKpis(preset),
+    getTimeline(preset),
+    getTopProducts(preset, 5),
+    getAbc(preset),
   ]);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Dashboard Executivo</h1>
-          <p className="text-sm text-slate-500">Saúde do negócio em tempo real — últimos 30 dias</p>
+          <p className="text-sm text-slate-500">Saúde do negócio em tempo real — {PERIOD_LABEL[preset] ?? 'últimos 30 dias'}</p>
         </div>
-        {overview && <Badge tone="green">Atualizado agora</Badge>}
+        <PeriodSelector basePath="/dashboard" current={preset} presets={PERIODS} />
       </div>
 
       {!overview ? (

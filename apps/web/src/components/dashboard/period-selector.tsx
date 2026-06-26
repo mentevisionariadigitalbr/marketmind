@@ -1,6 +1,8 @@
 import Link from 'next/link';
 
-const PRESETS: { value: string; label: string }[] = [
+type Preset = { value: string; label: string };
+
+const DEFAULT_PRESETS: Preset[] = [
   { value: '7d', label: '7 dias' },
   { value: '30d', label: '30 dias' },
   { value: '90d', label: '90 dias' },
@@ -8,11 +10,20 @@ const PRESETS: { value: string; label: string }[] = [
   { value: '365d', label: '365 dias' },
 ];
 
-/** Seletor de período por querystring (?preset=). Server-friendly (links). */
-export function PeriodSelector({ basePath, current }: { basePath: string; current: string }) {
+/** Seletor de período por querystring (?preset=). Server-friendly (links).
+ *  `presets` permite customizar as opções (ex.: 7/15/30 dias + mês). */
+export function PeriodSelector({
+  basePath,
+  current,
+  presets = DEFAULT_PRESETS,
+}: {
+  basePath: string;
+  current: string;
+  presets?: Preset[];
+}) {
   return (
     <div className="inline-flex rounded-lg border border-slate-200 bg-white p-0.5 text-xs">
-      {PRESETS.map((p) => {
+      {presets.map((p) => {
         const active = p.value === current;
         return (
           <Link

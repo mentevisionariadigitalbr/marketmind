@@ -7,7 +7,7 @@ import { cookies } from 'next/headers';
 import { apiFetch } from './api';
 import { ACCESS_COOKIE } from './cookies';
 
-export type PeriodPreset = '7d' | '30d' | '90d' | '180d' | '365d' | 'today' | 'mtd' | 'ytd' | 'custom';
+export type PeriodPreset = '7d' | '15d' | '30d' | '90d' | '180d' | '365d' | 'today' | 'mtd' | 'ytd' | 'custom';
 
 export interface KpiCard {
   key: string;
