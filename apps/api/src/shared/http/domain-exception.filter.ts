@@ -12,6 +12,7 @@ const STATUS_BY_CODE: Record<string, number> = {
   PLAN_LIMIT_EXCEEDED: HttpStatus.PAYMENT_REQUIRED,
   SUBSCRIPTION_REQUIRED: HttpStatus.PAYMENT_REQUIRED,
   BILLING_NOT_CONFIGURED: HttpStatus.SERVICE_UNAVAILABLE,
+  PLAN_CODE_IN_USE: HttpStatus.CONFLICT,
 };
 
 /** Traduz erros de aplicação (framework-free) em respostas HTTP coerentes. */

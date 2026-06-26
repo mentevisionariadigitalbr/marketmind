@@ -9,6 +9,10 @@ export interface AccessClaims {
   roles: string[];
   permissions: string[];
   email: string;
+  /** Impersonação (Fase 7): id do platform-admin que está "entrando como cliente". */
+  impersonatedBy?: string;
+  /** Sessão somente-leitura (impersonação): bloqueia escrita no app do cliente. */
+  readOnly?: boolean;
 }
 
 export interface TokenService {

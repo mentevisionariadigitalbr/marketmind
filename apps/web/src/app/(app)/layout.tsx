@@ -5,6 +5,7 @@ import { getBilling } from '@/lib/billing';
 import { LogoutButton } from '@/components/logout-button';
 import { EmailVerificationBanner } from '@/components/email-verification-banner';
 import { BillingBanner } from '@/components/billing-banner';
+import { ImpersonationBanner } from '@/components/impersonation-banner';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();
@@ -15,6 +16,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen">
+      {session.impersonation?.readOnly && <ImpersonationBanner />}
       <BillingBanner billing={billing} />
       {!session.user.emailVerifiedAt && <EmailVerificationBanner />}
       <header className="border-b border-slate-200 bg-white">

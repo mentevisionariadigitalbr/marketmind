@@ -105,7 +105,9 @@ export class AuthController {
   @Get('me')
   @UseGuards(JwtAuthGuard)
   async me(@CurrentUser() user: AccessClaims) {
-    return this.getMe.execute({ userId: user.sub });
+    const me = await this.getMe.execute({ userId: user.sub });
+    // Sinaliza sessão de impersonação (somente leitura) para o app do cliente.
+    return { ...me, impersonation: user.readOnly ? { readOnly: true, by: user.impersonatedBy ?? null } : null };
   }
 
   @Patch('me')

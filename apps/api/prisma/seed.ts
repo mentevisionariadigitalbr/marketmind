@@ -149,11 +149,29 @@ async function seedMarketplaces(): Promise<void> {
   console.log(`Seed: ${MARKETPLACES.length} marketplaces.`);
 }
 
+/** Cria o 1º super-admin de plataforma a partir do ambiente (idempotente). */
+async function seedPlatformAdmin(): Promise<void> {
+  const email = process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.PLATFORM_ADMIN_PASSWORD;
+  if (!email || !password) {
+    console.log('Seed: PLATFORM_ADMIN_EMAIL/PASSWORD ausentes — admin de plataforma não semeado.');
+    return;
+  }
+  const passwordHash = await hash(password);
+  await prisma.platformAdmin.upsert({
+    where: { email },
+    create: { email, name: 'Platform Admin', passwordHash },
+    update: { passwordHash },
+  });
+  console.log(`Seed: super-admin de plataforma ${email}.`);
+}
+
 async function main(): Promise<void> {
   await seedRbac();
   await seedPlans();
   await seedMarketplaces();
   await seedDemoUser();
+  await seedPlatformAdmin();
 }
 
 main()

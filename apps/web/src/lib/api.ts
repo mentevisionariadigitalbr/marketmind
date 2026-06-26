@@ -24,6 +24,8 @@ export interface AuthResponse {
 export interface MeResponse {
   user: PublicUser;
   company: { id: string; name: string; taxId: string | null; taxRegime: string };
+  /** Presente quando a sessão é uma impersonação do admin (somente leitura). */
+  impersonation?: { readOnly: boolean; by: string | null } | null;
 }
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {

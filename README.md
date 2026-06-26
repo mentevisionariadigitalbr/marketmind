@@ -68,6 +68,14 @@ isolamento multi-tenant verificável e CI. A construção segue o
   imediata — OWNER apaga a empresa e purga o negócio, demais anonimizam só a si; **retém
   faturas/assinaturas por obrigação fiscal**), com `data_subject_requests` (RLS) registrando
   cada pedido. Registro de tratamento e base legal em [`docs/lgpd.md`](docs/lgpd.md).
+- ✅ **Área de Admin / Backoffice (Fase 7)**: papel **PLATFORM_ADMIN totalmente separado** do
+  RBAC de tenant — tabela `platform_admins`, JWT com **segredo próprio** (`JWT_ADMIN_SECRET`) e
+  `PlatformAdminGuard` (token de cliente → 403, provado por teste cripto-forte). Backoffice em
+  `/admin`: **métricas SaaS** (MRR/ativos/churn/conversão, cross-tenant), **empresas/clientes**
+  (assinaturas, faturas, inadimplência), **CRUD de planos & preços**, **saúde** (contas de
+  marketplace, filas/`jobs`) e **auditoria** (`audit_logs`). **Impersonation somente-leitura e
+  auditada** ("entrar como cliente": token de tenant `readOnly`+`impersonatedBy`, escrita
+  bloqueada por interceptor global, com registro de quem entrou como quem e quando).
 - ✅ **`apps/web`** (Next.js 15 / React 19): login, cadastro, onboarding e dashboard inicial,
   com sessão em cookies httpOnly e proteção de rotas por middleware.
 - ✅ **CI** (`.github/workflows/ci.yml`): Postgres de serviço, lint, typecheck, testes

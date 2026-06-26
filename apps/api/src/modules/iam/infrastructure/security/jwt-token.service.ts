@@ -26,6 +26,9 @@ export class JwtTokenService implements TokenService {
         roles: claims.roles,
         permissions: claims.permissions,
         email: claims.email,
+        // Só presentes em tokens de impersonação (somente leitura).
+        ...(claims.impersonatedBy ? { impersonatedBy: claims.impersonatedBy } : {}),
+        ...(claims.readOnly ? { readOnly: true } : {}),
       },
       options,
     );
@@ -39,6 +42,8 @@ export class JwtTokenService implements TokenService {
       roles?: string[];
       permissions?: string[];
       email: string;
+      impersonatedBy?: string;
+      readOnly?: boolean;
     }>(token, { secret: this.config.get<string>('JWT_ACCESS_SECRET') });
     return {
       sub: payload.sub,
@@ -47,6 +52,8 @@ export class JwtTokenService implements TokenService {
       roles: payload.roles ?? [],
       permissions: payload.permissions ?? [],
       email: payload.email,
+      impersonatedBy: payload.impersonatedBy,
+      readOnly: payload.readOnly,
     };
   }
 
