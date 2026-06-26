@@ -10,11 +10,18 @@ const MAIN: Item[] = [
   { href: '/dashboard/products', label: 'Produtos', icon: '☷' },
   { href: '/dashboard/costs', label: 'Custos dos Produtos', icon: '₵' },
   { href: '/dashboard/inventory', label: 'Estoque', icon: '▤' },
+  { href: '/dashboard/inventory/reposicao', label: 'Reposição', icon: '📦' },
+  { href: '/dashboard/purchases', label: 'Compras', icon: '🧾' },
+  { href: '/dashboard/suppliers', label: 'Fornecedores', icon: '🚚' },
   { href: '/dashboard/categories', label: 'Categorias', icon: '◳' },
   { href: '/dashboard/abc', label: 'Curva ABC', icon: '▮' },
   { href: '/dashboard/top-products', label: 'Top Produtos', icon: '★' },
+  { href: '/dashboard/channels', label: 'Canais', icon: '🛒' },
   { href: '/dashboard/alerts', label: 'Alertas', icon: '⚠' },
+  { href: '/dashboard/pricing', label: 'Precificação', icon: '🏷' },
+  { href: '/dashboard/roi', label: 'ROI', icon: '↩' },
   { href: '/dashboard/finance/dre', label: 'DRE', icon: '∑' },
+  { href: '/dashboard/finance/cashflow', label: 'Fluxo de Caixa', icon: '💵' },
   { href: '/dashboard/finance/expenses', label: 'Despesas', icon: '↧' },
   { href: '/dashboard/finance/taxes', label: 'Alíquotas', icon: '％' },
 ];
@@ -23,6 +30,7 @@ const SETTINGS: Item[] = [
   { href: '/dashboard/settings/integrations', label: 'Integrações', icon: '🔌' },
   { href: '/dashboard/settings/team', label: 'Equipe', icon: '👥' },
   { href: '/dashboard/settings/billing', label: 'Cobrança', icon: '💳' },
+  { href: '/dashboard/settings/reports', label: 'Relatórios e-mail', icon: '✉' },
   { href: '/dashboard/settings', label: 'Configurações', icon: '⚙' },
 ];
 

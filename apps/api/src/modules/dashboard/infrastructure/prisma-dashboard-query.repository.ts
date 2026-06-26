@@ -395,7 +395,7 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
   async getProductSignals(current: DateRange, previous: DateRange): Promise<ProductSignal[]> {
     return this.run(async (db) => {
       const rows = await db.$queryRaw<
-        { id: string; sku: string | null; title: string; status: string; stock: number; units_current: number; units_previous: number; cogs: number; covered_revenue: number }[]
+        { id: string; sku: string | null; title: string; status: string; stock: number; units_current: number; units_previous: number; cogs: number; covered_revenue: number; promo_price: number | null; unit_cost: number | null; lead_time_days: number | null }[]
       >(Prisma.sql`
         WITH cur AS (
           SELECT oi.product_id,
@@ -426,11 +426,22 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
                COALESCE(cur.units, 0)::int AS units_current,
                COALESCE(prev.units, 0)::int AS units_previous,
                COALESCE(cur.cogs, 0)::float8 AS cogs,
-               COALESCE(cur.covered_revenue, 0)::float8 AS covered_revenue
+               COALESCE(cur.covered_revenue, 0)::float8 AS covered_revenue,
+               p.promo_price::float8 AS promo_price,
+               pcost.unit_cost AS unit_cost,
+               sup.lead_time_days AS lead_time_days
         FROM products p
         LEFT JOIN cur ON cur.product_id = p.id
         LEFT JOIN prev ON prev.product_id = p.id
         LEFT JOIN stk ON stk.product_id = p.id
+        LEFT JOIN suppliers sup ON sup.id = p.supplier_id
+        LEFT JOIN LATERAL (
+          SELECT (pc.acquisition_cost + pc.inbound_freight + pc.packaging_cost + pc.other_cost)::float8 AS unit_cost
+          FROM product_costs pc
+          WHERE pc.company_id = p.company_id AND pc.product_id = p.id AND pc.variant_id IS NULL AND pc.valid_from <= now()
+          ORDER BY pc.valid_from DESC
+          LIMIT 1
+        ) pcost ON true
         WHERE p.company_id = ${this.companyId}::uuid`);
       return rows.map((r) => ({
         productId: r.id,
@@ -441,6 +452,9 @@ export class PrismaDashboardQueryRepository implements DashboardQueryPort {
         unitsSoldCurrent: r.units_current,
         unitsSoldPrevious: r.units_previous,
         marginPct: r.covered_revenue > 0 ? grossMarginPct(r.covered_revenue, r.cogs) : null,
+        unitCost: r.unit_cost,
+        promoPrice: r.promo_price,
+        leadTimeDays: r.lead_time_days,
       }));
     });
   }

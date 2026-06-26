@@ -20,7 +20,7 @@ export default async function AlertsPage({ searchParams }: { searchParams: Promi
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Alertas</h1>
-          <p className="text-sm text-slate-500">Estoque, produtos parados e variações de vendas</p>
+          <p className="text-sm text-slate-500">Ruptura, excesso de estoque, promoção com prejuízo, comprar hoje e variações de vendas</p>
         </div>
         <PeriodSelector basePath="/dashboard/alerts" current={preset} />
       </div>

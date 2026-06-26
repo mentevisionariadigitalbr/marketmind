@@ -67,6 +67,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                   <th className="px-3 text-right">Receita</th>
                   <th className="px-3 text-right">Vendas</th>
                   <th className="px-3 text-right">Margem</th>
+                  <th className="px-3"></th>
                 </tr>
               </thead>
               <tbody>
@@ -84,6 +85,11 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                     <td className="px-3 text-right tabular-nums">{formatBRL(p.revenue)}</td>
                     <td className="px-3 text-right tabular-nums">{formatInt(p.unitsSold)}</td>
                     <td className="px-3 text-right tabular-nums text-slate-400" title="Requer módulo Financeiro">🔒</td>
+                    <td className="px-3 text-right">
+                      <Link href={`/dashboard/products/${p.productId}`} className="text-xs font-medium text-brand hover:underline">
+                        Editar
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>

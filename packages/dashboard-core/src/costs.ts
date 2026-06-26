@@ -55,3 +55,25 @@ export function costCoverage(coveredAmount: number, totalAmount: number): number
   if (!Number.isFinite(coveredAmount) || !Number.isFinite(totalAmount) || totalAmount <= 0) return 0;
   return coveredAmount / totalAmount;
 }
+
+/**
+ * Custo médio ponderado após uma entrada de compra (Fase 1, Inc.4):
+ *   novo = (estoque×custo_atual + qtd×custo_compra) / (estoque + qtd)
+ * Estoque negativo conta como 0. Sem estoque/sem custo prévio → assume o custo da
+ * compra. Arredonda a 2 casas (moeda).
+ */
+export function weightedAverageCost(
+  onHand: number,
+  currentCost: number,
+  incomingQty: number,
+  incomingCost: number,
+): number {
+  const base = Math.max(onHand, 0);
+  const totalQty = base + incomingQty;
+  if (totalQty <= 0) return round2(incomingCost);
+  return round2((base * currentCost + incomingQty * incomingCost) / totalQty);
+}
+
+function round2(v: number): number {
+  return Math.round(v * 100) / 100;
+}

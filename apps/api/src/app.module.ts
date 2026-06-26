@@ -15,12 +15,23 @@ import { MailModule } from './shared/mail/mail.module';
 import { AuditModule } from './shared/audit/audit.module';
 import { DomainExceptionFilter } from './shared/http/domain-exception.filter';
 import { TenantInterceptor } from './shared/tenant/tenant.interceptor';
+import { ImpersonationReadOnlyInterceptor } from './shared/impersonation/impersonation-read-only.interceptor';
 import { IamModule } from './modules/iam/iam.module';
 import { IntegrationModule } from './modules/integration/integration.module';
 import { DashboardModule } from './modules/dashboard/dashboard.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { InventoryModule } from './modules/inventory/inventory.module';
+import { SuppliersModule } from './modules/suppliers/suppliers.module';
+import { PurchasesModule } from './modules/purchases/purchases.module';
+import { ProductsModule } from './modules/products/products.module';
+import { AnalyticsModule } from './modules/analytics/analytics.module';
+import { CashflowModule } from './modules/cashflow/cashflow.module';
+import { PricingModule } from './modules/pricing/pricing.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { ChannelsModule } from './modules/channels/channels.module';
 import { BillingModule } from './modules/billing/billing.module';
 import { PrivacyModule } from './modules/privacy/privacy.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { HealthController } from './modules/health/health.controller';
 
 @Module({
@@ -65,8 +76,18 @@ import { HealthController } from './modules/health/health.controller';
     IntegrationModule,
     DashboardModule,
     FinanceModule,
+    InventoryModule,
+    SuppliersModule,
+    PurchasesModule,
+    ProductsModule,
+    AnalyticsModule,
+    CashflowModule,
+    PricingModule,
+    ReportsModule,
+    ChannelsModule,
     BillingModule,
     PrivacyModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [
@@ -79,6 +100,8 @@ import { HealthController } from './modules/health/health.controller';
       }),
     },
     { provide: APP_FILTER, useClass: DomainExceptionFilter },
+    // Bloqueia escrita em sessões de impersonação (somente leitura) — antes do tenant.
+    { provide: APP_INTERCEPTOR, useClass: ImpersonationReadOnlyInterceptor },
     { provide: APP_INTERCEPTOR, useClass: TenantInterceptor },
     { provide: APP_GUARD, useClass: ObservableThrottlerGuard },
   ],

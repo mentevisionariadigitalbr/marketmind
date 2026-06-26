@@ -12,7 +12,10 @@ export type AlertType =
   | 'stale-product'
   | 'negative-margin'
   | 'sales-drop'
-  | 'sales-spike';
+  | 'sales-spike'
+  | 'excess-stock'
+  | 'promo-loss'
+  | 'buy-now';
 
 export type AlertSeverity = 'critical' | 'warning' | 'info';
 
@@ -34,12 +37,18 @@ export interface AlertRules {
   readonly salesDropPct: number;
   /** Alta relativa de vendas que dispara alerta (fração). Default 1 (+100%). */
   readonly salesSpikePct: number;
+  /** Dias do período atual — base para velocidade/cobertura. Default 30. */
+  readonly periodDays: number;
+  /** Cobertura acima deste nº de dias → excesso de estoque (capital parado). Default 120. */
+  readonly excessCoverageDays: number;
 }
 
 export const DEFAULT_ALERT_RULES: AlertRules = {
   lowStockThreshold: 5,
   salesDropPct: 0.5,
   salesSpikePct: 1,
+  periodDays: 30,
+  excessCoverageDays: 120,
 };
 
 const SEVERITY_ORDER: Record<AlertSeverity, number> = { critical: 0, warning: 1, info: 2 };
@@ -127,6 +136,55 @@ export function detectAlerts(
           value: change,
         });
       }
+    }
+
+    // Cobertura (dias) a partir da velocidade do período atual.
+    const velocity = rules.periodDays > 0 ? s.unitsSoldCurrent / rules.periodDays : 0;
+    const coverageDays = velocity > 0 ? s.stock / velocity : null;
+
+    // Excesso de estoque: capital parado (cobertura muito alta).
+    if (active && s.stock > 0 && coverageDays !== null && coverageDays > rules.excessCoverageDays) {
+      alerts.push({
+        type: 'excess-stock',
+        severity: 'info',
+        title: 'Excesso de estoque',
+        description: `${s.title}: ~${Math.round(coverageDays)} dias de cobertura — capital parado.`,
+        productId: s.productId,
+        sku: s.sku,
+        value: (s.unitCost ?? 0) * s.stock,
+      });
+    }
+
+    // Comprar hoje: vende e rompe antes da reposição chegar (cobertura <= lead time).
+    if (
+      active &&
+      s.stock > 0 &&
+      coverageDays !== null &&
+      s.leadTimeDays != null &&
+      coverageDays <= s.leadTimeDays
+    ) {
+      alerts.push({
+        type: 'buy-now',
+        severity: 'warning',
+        title: 'Comprar hoje',
+        description: `${s.title}: ~${Math.round(coverageDays)} dias de estoque, lead time ${s.leadTimeDays}d.`,
+        productId: s.productId,
+        sku: s.sku,
+        value: coverageDays,
+      });
+    }
+
+    // Promoção com prejuízo: preço promocional abaixo do custo.
+    if (s.promoPrice != null && s.promoPrice > 0 && s.unitCost != null && s.promoPrice < s.unitCost) {
+      alerts.push({
+        type: 'promo-loss',
+        severity: 'critical',
+        title: 'Promoção com prejuízo',
+        description: `${s.title}: promo R$${s.promoPrice.toFixed(2)} abaixo do custo R$${s.unitCost.toFixed(2)}.`,
+        productId: s.productId,
+        sku: s.sku,
+        value: s.promoPrice - s.unitCost,
+      });
     }
   }
 

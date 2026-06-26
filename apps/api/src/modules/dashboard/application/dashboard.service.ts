@@ -330,7 +330,8 @@ export class DashboardService {
     const range = resolvePeriod(period.preset, period);
     return this.cached('alerts', TTL.alerts, period, async () => {
       const signals = await this.query.getProductSignals(range, previousOf(range));
-      const alerts = detectAlerts(signals);
+      const periodDays = Math.max(1, Math.round((range.to.getTime() - range.from.getTime()) / 86_400_000));
+      const alerts = detectAlerts(signals, { ...DEFAULT_ALERT_RULES, periodDays });
       const counts = alerts.reduce(
         (acc, a) => ({ ...acc, [a.severity]: acc[a.severity] + 1 }),
         { critical: 0, warning: 0, info: 0 },

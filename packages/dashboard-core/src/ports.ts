@@ -121,6 +121,12 @@ export interface ProductSignal {
   readonly unitsSoldPrevious: number;
   /** null até existir `product_costs`. */
   readonly marginPct: number | null;
+  /** Custo unitário vigente (Fase 2) — habilita excesso de estoque e promo-prejuízo. */
+  readonly unitCost?: number | null;
+  /** Preço promocional manual (Fase 2) — habilita promo com prejuízo. */
+  readonly promoPrice?: number | null;
+  /** Lead time do fornecedor (Fase 2) — habilita "comprar hoje". */
+  readonly leadTimeDays?: number | null;
 }
 
 /**

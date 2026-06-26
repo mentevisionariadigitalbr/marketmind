@@ -47,6 +47,11 @@ model Company {
   invoices            Invoice[]
   usageRecords        UsageRecord[]
   legalAcceptances    LegalAcceptance[]
+  stockMovements      StockMovement[]
+  suppliers           Supplier[]
+  purchaseOrders      PurchaseOrder[]
+  payables            Payable[]
+  reportSubscription  ReportSubscription?
 
   @@map("companies")
 }
@@ -213,6 +218,7 @@ enum MarketplaceCode {
   SHOPEE
   AMAZON
   MAGALU
+  MANUAL
 }
 
 enum MarketplaceAccountStatus {
@@ -284,17 +290,27 @@ model Product {
   permalink            String?
   thumbnail            String?
   listingType          String?   @map("listing_type")
+  supplierId           String?   @map("supplier_id") @db.Uuid
+  // Campos manuais (Fase 2) — overrides internos; o sync do ML NUNCA os sobrescreve.
+  brand                String?
+  internalSku          String?   @map("internal_sku")
+  internalTitle        String?   @map("internal_title")
+  internalNotes        String?   @map("internal_notes")
+  promoPrice           Decimal?  @map("promo_price") @db.Decimal(14, 2)
   lastSyncedAt         DateTime? @map("last_synced_at") @db.Timestamptz(6)
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt            DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  account    MarketplaceAccount @relation(fields: [marketplaceAccountId], references: [id], onDelete: Cascade)
-  orderItems OrderItem[]
-  variants   ProductVariant[]
-  images     ProductImage[]
-  prices     ProductPrice[]
-  inventory  Inventory[]
-  costs      ProductCost[]
+  account            MarketplaceAccount  @relation(fields: [marketplaceAccountId], references: [id], onDelete: Cascade)
+  supplier           Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  purchaseOrderItems PurchaseOrderItem[]
+  orderItems     OrderItem[]
+  variants       ProductVariant[]
+  images         ProductImage[]
+  prices         ProductPrice[]
+  inventory      Inventory[]
+  costs          ProductCost[]
+  stockMovements StockMovement[]
 
   @@unique([marketplaceAccountId, externalId])
   @@index([companyId])
@@ -739,4 +755,189 @@ model DataSubjectRequest {
 
   @@index([companyId, createdAt])
   @@map("data_subject_requests")
+}
+
+// ─────────────────────────── Admin de plataforma (Fase 7) ───────────────────────────
+
+/**
+ * Super-admin da PLATAFORMA (backoffice). Identidade SEPARADA do RBAC de tenant:
+ * sem company_id, autenticado por um JWT de segredo próprio. Tabela global (sem RLS),
+ * como o catálogo de planos/marketplaces — NÃO contém dados de cliente.
+ */
+model PlatformAdmin {
+  id           String    @id @default(uuid()) @db.Uuid
+  email        String    @unique
+  name         String
+  passwordHash String    @map("password_hash")
+  lastLoginAt  DateTime? @map("last_login_at") @db.Timestamptz(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  @@map("platform_admins")
+}
+
+// ─────────────────────────── Estoque operacional (Fase 1) ───────────────────────────
+
+enum StockMovementType {
+  ENTRADA
+  SAIDA
+  AJUSTE
+  INVENTARIO
+  DEVOLUCAO
+}
+
+/**
+ * Razão de estoque (append-only) para rastreabilidade/conciliação. O ML continua
+ * mestre do `available` do anúncio; aqui registramos ajustes/inventário/entradas e
+ * mostramos divergência. `quantity` é sinalizado (+entrada / −saída). RLS por company.
+ */
+model StockMovement {
+  id            String            @id @default(uuid()) @db.Uuid
+  companyId     String            @map("company_id") @db.Uuid
+  productId     String            @map("product_id") @db.Uuid
+  variantId     String?           @map("variant_id") @db.Uuid
+  type          StockMovementType
+  quantity      Int
+  balanceAfter  Int               @map("balance_after")
+  unitCost      Decimal?          @map("unit_cost") @db.Decimal(14, 2)
+  reason        String?
+  referenceType String?           @map("reference_type")
+  referenceId   String?           @map("reference_id") @db.Uuid
+  occurredAt    DateTime          @default(now()) @map("occurred_at") @db.Timestamptz(6)
+  createdBy     String?           @map("created_by") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, productId, occurredAt])
+  @@map("stock_movements")
+}
+
+/**
+ * Fornecedor (Fase 1, Inc.2). RLS por company. `leadTimeDays` alimenta a previsão
+ * de reposição (Inc.3) e o vínculo com produtos habilita o relatório por fornecedor.
+ */
+model Supplier {
+  id              String   @id @default(uuid()) @db.Uuid
+  companyId       String   @map("company_id") @db.Uuid
+  name            String
+  contactName     String?  @map("contact_name")
+  phone           String?
+  email           String?
+  document        String?
+  leadTimeDays    Int?     @map("lead_time_days")
+  paymentTermDays Int?     @map("payment_term_days")
+  notes           String?
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products       Product[]
+  purchaseOrders PurchaseOrder[]
+  payables       Payable[]
+
+  @@index([companyId, active])
+  @@map("suppliers")
+}
+
+enum PayableStatus {
+  PENDING
+  PAID
+}
+
+enum ReportFrequency {
+  DAILY
+  WEEKLY
+}
+
+/** Assinatura de relatório por e-mail (Fase 3, Inc.3). Uma por empresa. */
+model ReportSubscription {
+  id         String          @id @default(uuid()) @db.Uuid
+  companyId  String          @unique @map("company_id") @db.Uuid
+  frequency  ReportFrequency @default(WEEKLY)
+  recipients String
+  enabled    Boolean         @default(false)
+  lastSentAt DateTime?       @map("last_sent_at") @db.Timestamptz(6)
+  createdAt  DateTime        @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime        @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@map("report_subscriptions")
+}
+
+/**
+ * Conta a pagar (Fase 3, Inc.1). Gerada no recebimento de uma compra (vencimento =
+ * recebimento + prazo do fornecedor) ou lançada manualmente. Alimenta o fluxo de caixa.
+ */
+model Payable {
+  id          String        @id @default(uuid()) @db.Uuid
+  companyId   String        @map("company_id") @db.Uuid
+  supplierId  String?       @map("supplier_id") @db.Uuid
+  sourceType  String        @map("source_type")
+  sourceId    String?       @map("source_id") @db.Uuid
+  description String?
+  amount      Decimal       @db.Decimal(14, 2)
+  dueDate     DateTime      @map("due_date") @db.Timestamptz(6)
+  status      PayableStatus @default(PENDING)
+  paidAt      DateTime?     @map("paid_at") @db.Timestamptz(6)
+  createdBy   String?       @map("created_by") @db.Uuid
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt   DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company  Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+
+  @@index([companyId, status, dueDate])
+  @@map("payables")
+}
+
+enum PurchaseOrderStatus {
+  DRAFT
+  SENT
+  RECEIVED
+  CANCELLED
+}
+
+/**
+ * Pedido de compra (Fase 1, Inc.4). Ao receber: gera ENTRADA no razão de estoque e
+ * atualiza o custo do produto por média ponderada. RLS por company.
+ */
+model PurchaseOrder {
+  id         String              @id @default(uuid()) @db.Uuid
+  companyId  String              @map("company_id") @db.Uuid
+  supplierId String?             @map("supplier_id") @db.Uuid
+  status     PurchaseOrderStatus @default(DRAFT)
+  notes      String?
+  expectedAt DateTime?           @map("expected_at") @db.Timestamptz(6)
+  receivedAt DateTime?           @map("received_at") @db.Timestamptz(6)
+  createdBy  String?             @map("created_by") @db.Uuid
+  createdAt  DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  company  Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  supplier Supplier?           @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  items    PurchaseOrderItem[]
+
+  @@index([companyId, status])
+  @@map("purchase_orders")
+}
+
+model PurchaseOrderItem {
+  id               String   @id @default(uuid()) @db.Uuid
+  companyId        String   @map("company_id") @db.Uuid
+  purchaseOrderId  String   @map("purchase_order_id") @db.Uuid
+  productId        String   @map("product_id") @db.Uuid
+  quantity         Int
+  unitCost         Decimal  @map("unit_cost") @db.Decimal(14, 2)
+  receivedQuantity Int      @default(0) @map("received_quantity")
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, purchaseOrderId])
+  @@map("purchase_order_items")
 }
