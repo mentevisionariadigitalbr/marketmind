@@ -36,7 +36,6 @@ describe('Password reset — forgot/reset (integration)', () => {
   let userTokens: PrismaUserTokenRepository;
   let refreshTokens: PrismaRefreshTokenRepository;
   let tokens: FakeTokenService;
-  let forgot: ForgotPasswordUseCase;
   let reset: ResetPasswordUseCase;
 
   const clean = async () => {
@@ -61,7 +60,6 @@ describe('Password reset — forgot/reset (integration)', () => {
     userTokens = new PrismaUserTokenRepository(prisma);
     refreshTokens = new PrismaRefreshTokenRepository(prisma);
     tokens = new FakeTokenService();
-    forgot = new ForgotPasswordUseCase(users, userTokens, tokens, new NoopEmailSender());
     reset = new ResetPasswordUseCase(users, userTokens, tokens, new FakePasswordHasher(), refreshTokens);
   });
 
