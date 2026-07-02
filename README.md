@@ -12,6 +12,64 @@ responde, com base em dados reais do vendedor, perguntas que hoje ele não conse
 - Como devo precificar para bater minha margem-alvo?
 - Onde estou perdendo dinheiro?
 
+## Rodar localmente (do zero, em outro computador)
+
+Pré-requisitos: **Node 20+**, **Docker** (Desktop) e **corepack** (vem com o Node).
+
+```bash
+# 1. Clonar e instalar (pnpm fixado via corepack)
+git clone https://github.com/mentevisionariadigitalbr/marketmind.git
+cd marketmind
+corepack enable
+pnpm install
+
+# 2. Subir Postgres (host 5433) e Redis (host 6380)
+pnpm db:up
+
+# 3. Criar apps/api/.env (dev local) — cole o bloco abaixo
+
+# 4. Criar o schema + o papel de RLS (marketmind_app) + policies
+pnpm --filter @marketmind/api exec prisma migrate deploy
+
+# 5. Semear: papéis/planos + usuário demo + admin de plataforma
+pnpm --filter @marketmind/api run db:seed
+# 5b. (opcional) dados de demonstração para os dashboards não ficarem zerados
+pnpm --filter @marketmind/api run db:seed:demo
+
+# 6. Rodar (dois terminais)
+pnpm --filter @marketmind/api dev    # API em http://localhost:3333
+pnpm --filter @marketmind/web dev    # Web em http://localhost:3000
+```
+
+Abra **http://localhost:3000** e entre com **`demo@marketmind.ai` / `Demo@12345`**
+(admin da plataforma em `/admin/login`: **`admin@marketmind.ai` / `Admin@12345`**).
+
+Conteúdo de **`apps/api/.env`** para dev local (secrets de desenvolvimento — troque em produção):
+
+```dotenv
+NODE_ENV=development
+DATABASE_URL="postgresql://marketmind:marketmind@localhost:5433/marketmind?schema=public"
+APP_DATABASE_URL="postgresql://marketmind_app:marketmind_app@localhost:5433/marketmind?schema=public"
+REDIS_URL="redis://localhost:6380"
+API_PORT=3333
+CORS_ORIGIN="http://localhost:3000"
+JWT_ACCESS_SECRET="dev-access-secret-change-me-please"
+JWT_REFRESH_SECRET="dev-refresh-secret-change-me-please"
+JWT_ADMIN_SECRET="dev-admin-secret-change-me-please"
+TOKEN_ENCRYPTION_KEY="dev-token-encryption-key-change-me"
+PLATFORM_ADMIN_EMAIL="admin@marketmind.ai"
+PLATFORM_ADMIN_PASSWORD="Admin@12345"
+```
+
+Integrações externas (Mercado Livre, Stripe, Resend, Google) são **opcionais**: sem as chaves,
+o sistema usa fallbacks no-op e o resto do app funciona normalmente. O **web** aponta para
+`http://localhost:3333` por padrão (`NEXT_PUBLIC_API_URL` para mudar). Para produção, veja
+[`docs/deployment.md`](docs/deployment.md) e use o `apps/api/.env.example` como base.
+
+> **Reset dos dados de demo:** os testes de integração limpam empresas; rode
+> `pnpm --filter @marketmind/api run db:seed && pnpm --filter @marketmind/api run db:seed:demo`
+> para repovoar.
+
 ## Estado atual do repositório
 
 A **FASE 1 — Arquitetura** e o **Sprint 1 — Fundação & Autenticação Multi-tenant** estão

@@ -84,7 +84,24 @@ export default async function ProductsPage({ searchParams }: { searchParams: Pro
                     </td>
                     <td className="px-3 text-right tabular-nums">{formatBRL(p.revenue)}</td>
                     <td className="px-3 text-right tabular-nums">{formatInt(p.unitsSold)}</td>
-                    <td className="px-3 text-right tabular-nums text-slate-400" title="Requer módulo Financeiro">🔒</td>
+                    <td className="px-3 text-right tabular-nums">
+                      {p.marginPct === null ? (
+                        <span className="text-slate-300" title="Cadastre o custo para ver a margem">—</span>
+                      ) : (
+                        <span
+                          className={
+                            p.marginPct < 0
+                              ? 'font-semibold text-red-600'
+                              : p.marginPct < 0.1
+                                ? 'text-amber-600'
+                                : 'text-emerald-600'
+                          }
+                          title={p.profit !== null ? `Lucro: ${formatBRL(p.profit)}` : undefined}
+                        >
+                          {(p.marginPct * 100).toFixed(0)}%
+                        </span>
+                      )}
+                    </td>
                     <td className="px-3 text-right">
                       <Link href={`/dashboard/products/${p.productId}`} className="text-xs font-medium text-brand hover:underline">
                         Editar

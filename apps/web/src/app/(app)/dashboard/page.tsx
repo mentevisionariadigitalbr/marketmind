@@ -1,7 +1,11 @@
 import Link from 'next/link';
-import { getKpis, getTimeline, getTopProducts, getAbc, type PeriodPreset } from '@/lib/dashboard';
+import { getKpis, getTimeline, getTopProducts, getAbc, getAlerts, getInventory, type PeriodPreset } from '@/lib/dashboard';
+import { getForecast } from '@/lib/inventory';
+import { getCashflowProjection } from '@/lib/cashflow';
+import { getMarketplaceAccounts } from '@/lib/integrations';
 import { MetricCard, Card, EmptyState, Badge } from '@/components/dashboard/primitives';
 import { PeriodSelector } from '@/components/dashboard/period-selector';
+import { AttentionPanel } from '@/components/dashboard/attention-panel';
 import { LineChart, BarChart } from '@/components/dashboard/charts';
 import { formatBRL, formatPercent } from '@/lib/format';
 
@@ -19,22 +23,51 @@ export default async function OverviewPage({ searchParams }: { searchParams: Pro
   const sp = await searchParams;
   const preset = (PERIODS.some((p) => p.value === sp.preset) ? sp.preset : '30d') as PeriodPreset;
 
-  const [overview, timeline, top, abc] = await Promise.all([
+  const [overview, timeline, top, abc, alerts, inventory, forecast, cashflow, accounts] = await Promise.all([
     getKpis(preset),
     getTimeline(preset),
     getTopProducts(preset, 5),
     getAbc(preset),
+    getAlerts(preset),
+    getInventory(preset),
+    getForecast({ risk: 'critico' }),
+    getCashflowProjection(),
+    getMarketplaceAccounts(),
   ]);
+
+  const attention = {
+    criticalReorder: (forecast ?? []).length,
+    criticalAlerts: alerts?.counts.critical ?? 0,
+    overduePayables: cashflow?.totals.overdueAmount ?? 0,
+    outOfStock: inventory?.productsWithoutStock ?? 0,
+  };
+  const lastSync = (accounts ?? [])
+    .map((a) => a.lastSyncedAt)
+    .filter((d): d is string => !!d)
+    .sort()
+    .at(-1);
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold text-slate-800">Dashboard Executivo</h1>
-          <p className="text-sm text-slate-500">Saúde do negócio em tempo real — {PERIOD_LABEL[preset] ?? 'últimos 30 dias'}</p>
+          <p className="text-sm text-slate-500">
+            Saúde do negócio em tempo real — {PERIOD_LABEL[preset] ?? 'últimos 30 dias'}
+            {lastSync && (
+              <>
+                {' · '}
+                <Link href="/dashboard/settings/integrations" className="underline hover:text-slate-700">
+                  última sincronização {new Date(lastSync).toLocaleDateString('pt-BR')}
+                </Link>
+              </>
+            )}
+          </p>
         </div>
         <PeriodSelector basePath="/dashboard" current={preset} presets={PERIODS} />
       </div>
+
+      {overview && <AttentionPanel data={attention} />}
 
       {!overview ? (
         <EmptyState

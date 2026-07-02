@@ -4,34 +4,60 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
 type Item = { href: string; label: string; icon: string };
+type Section = { title: string; items: Item[] };
 
-const MAIN: Item[] = [
-  { href: '/dashboard', label: 'Overview', icon: '▣' },
-  { href: '/dashboard/products', label: 'Produtos', icon: '☷' },
-  { href: '/dashboard/costs', label: 'Custos dos Produtos', icon: '₵' },
-  { href: '/dashboard/inventory', label: 'Estoque', icon: '▤' },
-  { href: '/dashboard/inventory/reposicao', label: 'Reposição', icon: '📦' },
-  { href: '/dashboard/purchases', label: 'Compras', icon: '🧾' },
-  { href: '/dashboard/suppliers', label: 'Fornecedores', icon: '🚚' },
-  { href: '/dashboard/categories', label: 'Categorias', icon: '◳' },
-  { href: '/dashboard/abc', label: 'Curva ABC', icon: '▮' },
-  { href: '/dashboard/top-products', label: 'Top Produtos', icon: '★' },
-  { href: '/dashboard/channels', label: 'Canais', icon: '🛒' },
-  { href: '/dashboard/alerts', label: 'Alertas', icon: '⚠' },
-  { href: '/dashboard/pricing', label: 'Precificação', icon: '🏷' },
-  { href: '/dashboard/roi', label: 'ROI', icon: '↩' },
-  { href: '/dashboard/finance/dre', label: 'DRE', icon: '∑' },
-  { href: '/dashboard/finance/cashflow', label: 'Fluxo de Caixa', icon: '💵' },
-  { href: '/dashboard/finance/expenses', label: 'Despesas', icon: '↧' },
-  { href: '/dashboard/finance/taxes', label: 'Alíquotas', icon: '％' },
-];
-
-const SETTINGS: Item[] = [
-  { href: '/dashboard/settings/integrations', label: 'Integrações', icon: '🔌' },
-  { href: '/dashboard/settings/team', label: 'Equipe', icon: '👥' },
-  { href: '/dashboard/settings/billing', label: 'Cobrança', icon: '💳' },
-  { href: '/dashboard/settings/reports', label: 'Relatórios e-mail', icon: '✉' },
-  { href: '/dashboard/settings', label: 'Configurações', icon: '⚙' },
+const SECTIONS: Section[] = [
+  {
+    title: 'Visão geral',
+    items: [{ href: '/dashboard', label: 'Overview', icon: '▣' }],
+  },
+  {
+    title: 'Catálogo',
+    items: [
+      { href: '/dashboard/products', label: 'Produtos', icon: '☷' },
+      { href: '/dashboard/costs', label: 'Custos dos Produtos', icon: '₵' },
+      { href: '/dashboard/categories', label: 'Categorias', icon: '◳' },
+      { href: '/dashboard/channels', label: 'Canais', icon: '🛒' },
+    ],
+  },
+  {
+    title: 'Operação',
+    items: [
+      { href: '/dashboard/inventory', label: 'Estoque', icon: '▤' },
+      { href: '/dashboard/inventory/reposicao', label: 'Reposição', icon: '📦' },
+      { href: '/dashboard/purchases', label: 'Compras', icon: '🧾' },
+      { href: '/dashboard/suppliers', label: 'Fornecedores', icon: '🚚' },
+    ],
+  },
+  {
+    title: 'Inteligência',
+    items: [
+      { href: '/dashboard/alerts', label: 'Alertas', icon: '⚠' },
+      { href: '/dashboard/abc', label: 'Curva ABC', icon: '▮' },
+      { href: '/dashboard/top-products', label: 'Top Produtos', icon: '★' },
+      { href: '/dashboard/pricing', label: 'Precificação', icon: '🏷' },
+      { href: '/dashboard/roi', label: 'ROI', icon: '↩' },
+    ],
+  },
+  {
+    title: 'Financeiro',
+    items: [
+      { href: '/dashboard/finance/dre', label: 'DRE', icon: '∑' },
+      { href: '/dashboard/finance/cashflow', label: 'Fluxo de Caixa', icon: '💵' },
+      { href: '/dashboard/finance/expenses', label: 'Despesas', icon: '↧' },
+      { href: '/dashboard/finance/taxes', label: 'Alíquotas', icon: '％' },
+    ],
+  },
+  {
+    title: 'Configurações',
+    items: [
+      { href: '/dashboard/settings/integrations', label: 'Integrações', icon: '🔌' },
+      { href: '/dashboard/settings/team', label: 'Equipe', icon: '👥' },
+      { href: '/dashboard/settings/billing', label: 'Cobrança', icon: '💳' },
+      { href: '/dashboard/settings/reports', label: 'Relatórios e-mail', icon: '✉' },
+      { href: '/dashboard/settings', label: 'Configurações', icon: '⚙' },
+    ],
+  },
 ];
 
 function NavLink({ item, active }: { item: Item; active: boolean }) {
@@ -52,14 +78,17 @@ export function DashboardNav() {
   const pathname = usePathname();
   return (
     <nav className="flex gap-1 overflow-x-auto md:flex-col">
-      {MAIN.map((item) => (
-        <NavLink key={item.href} item={item} active={pathname === item.href} />
-      ))}
-      <p className="mt-3 px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 max-md:hidden">
-        Configurações
-      </p>
-      {SETTINGS.map((item) => (
-        <NavLink key={item.href} item={item} active={pathname === item.href} />
+      {SECTIONS.map((section, i) => (
+        <div key={section.title} className="contents md:block">
+          <p
+            className={`px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 max-md:hidden ${i === 0 ? '' : 'mt-3'}`}
+          >
+            {section.title}
+          </p>
+          {section.items.map((item) => (
+            <NavLink key={item.href} item={item} active={pathname === item.href} />
+          ))}
+        </div>
       ))}
     </nav>
   );
