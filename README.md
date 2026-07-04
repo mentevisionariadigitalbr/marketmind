@@ -21,7 +21,8 @@ Pré-requisitos: **Node 20+**, **Docker** (Desktop) e **corepack** (vem com o No
 git clone https://github.com/mentevisionariadigitalbr/marketmind.git
 cd marketmind
 corepack enable
-pnpm install
+pnpm install    # instala e gera o Prisma Client (via postinstall)
+# se instalar com --ignore-scripts: pnpm --filter @marketmind/api exec prisma generate
 
 # 2. Subir Postgres (host 5433) e Redis (host 6380)
 pnpm db:up
