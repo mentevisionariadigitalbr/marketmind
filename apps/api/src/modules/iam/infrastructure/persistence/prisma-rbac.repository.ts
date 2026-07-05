@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import {
   RbacRepository,
   RoleSummary,
@@ -44,6 +44,21 @@ export class PrismaRbacRepository implements RbacRepository {
       where: { userId_roleId: { userId, roleId: role.id } },
       create: { userId, roleId: role.id },
       update: {},
+    });
+  }
+
+  async setSystemRole(userId: string, roleName: string): Promise<void> {
+    const role = await this.prisma.db.role.findFirst({
+      where: { name: roleName, companyId: null, isSystem: true },
+      select: { id: true },
+    });
+    if (!role) {
+      throw new NotFoundError(`Papel de sistema "${roleName}"`);
+    }
+    // Substitui: remove os papéis de sistema atuais e atribui apenas o novo.
+    await this.prisma.runInTransaction(async () => {
+      await this.prisma.db.userRoleAssignment.deleteMany({ where: { userId } });
+      await this.prisma.db.userRoleAssignment.create({ data: { userId, roleId: role.id } });
     });
   }
 

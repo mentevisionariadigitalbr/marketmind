@@ -49,6 +49,9 @@ export class SyncOrdersUseCase {
       offset: input.offset,
       limit: input.limit,
       status: input.status,
+      // Ordena por data (mais recentes primeiro) para uma janela cronológica correta —
+      // evita o viés do sort padrão do ML (por última atualização), que comprime a densidade.
+      sort: 'date_desc',
     });
 
     let created = 0;

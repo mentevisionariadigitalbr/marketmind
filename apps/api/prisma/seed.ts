@@ -6,6 +6,7 @@ import {
   SYSTEM_ROLE_PERMISSIONS,
   SystemRoleName,
 } from '../src/modules/iam/domain/permissions';
+import { PLAN_CATALOG, PLAN_CODES } from '../src/modules/billing/domain/plans.catalog';
 
 const prisma = new PrismaClient();
 
@@ -50,6 +51,53 @@ async function seedRbac(): Promise<void> {
   );
 }
 
+async function seedPlans(): Promise<void> {
+  // Price IDs do Stripe (test mode) vêm do ambiente — específicos por conta.
+  const priceByCode: Record<string, string | undefined> = {
+    PRO: process.env.STRIPE_PRICE_PRO,
+    BUSINESS: process.env.STRIPE_PRICE_BUSINESS,
+  };
+  for (const plan of PLAN_CATALOG) {
+    const stripePriceId = priceByCode[plan.code] ?? undefined;
+    await prisma.plan.upsert({
+      where: { code: plan.code },
+      create: {
+        code: plan.code,
+        name: plan.name,
+        priceCents: plan.priceCents,
+        currency: plan.currency,
+        interval: plan.interval,
+        trialDays: plan.trialDays,
+        maxMarketplaceAccounts: plan.limits.maxMarketplaceAccounts,
+        maxProducts: plan.limits.maxProducts,
+        historyWindowDays: plan.limits.historyWindowDays,
+        stripePriceId,
+      },
+      update: {
+        name: plan.name,
+        priceCents: plan.priceCents,
+        maxMarketplaceAccounts: plan.limits.maxMarketplaceAccounts,
+        maxProducts: plan.limits.maxProducts,
+        historyWindowDays: plan.limits.historyWindowDays,
+        // Só sobrescreve o price id quando informado (não apaga em re-seeds sem env).
+        ...(stripePriceId ? { stripePriceId } : {}),
+      },
+    });
+  }
+  console.log(`Seed: ${PLAN_CATALOG.length} planos.`);
+}
+
+/** Demo já entra com BUSINESS ativo (experiência desbloqueada). */
+async function ensureDemoSubscription(companyId: string): Promise<void> {
+  const business = await prisma.plan.findUnique({ where: { code: PLAN_CODES.BUSINESS } });
+  if (!business) return;
+  await prisma.subscription.upsert({
+    where: { companyId },
+    create: { companyId, planId: business.id, status: 'ACTIVE', provider: 'seed' },
+    update: { planId: business.id, status: 'ACTIVE' },
+  });
+}
+
 async function seedDemoUser(): Promise<void> {
   const email = 'demo@marketmind.ai';
   const existing = await prisma.user.findUnique({ where: { email } });
@@ -59,7 +107,8 @@ async function seedDemoUser(): Promise<void> {
       create: { userId: existing.id, roleId: SYSTEM_ROLE_IDS.OWNER },
       update: {},
     });
-    console.log('Seed: usuário demo já existe (papel OWNER garantido).');
+    await ensureDemoSubscription(existing.companyId);
+    console.log('Seed: usuário demo já existe (papel OWNER + assinatura BUSINESS garantidos).');
     return;
   }
 
@@ -78,6 +127,7 @@ async function seedDemoUser(): Promise<void> {
   await prisma.userRoleAssignment.create({
     data: { userId: user.id, roleId: SYSTEM_ROLE_IDS.OWNER },
   });
+  await ensureDemoSubscription(company.id);
   console.log(`Seed: empresa "${company.name}" + usuário ${email} (senha Demo@12345)`);
 }
 
@@ -99,10 +149,29 @@ async function seedMarketplaces(): Promise<void> {
   console.log(`Seed: ${MARKETPLACES.length} marketplaces.`);
 }
 
+/** Cria o 1º super-admin de plataforma a partir do ambiente (idempotente). */
+async function seedPlatformAdmin(): Promise<void> {
+  const email = process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase();
+  const password = process.env.PLATFORM_ADMIN_PASSWORD;
+  if (!email || !password) {
+    console.log('Seed: PLATFORM_ADMIN_EMAIL/PASSWORD ausentes — admin de plataforma não semeado.');
+    return;
+  }
+  const passwordHash = await hash(password);
+  await prisma.platformAdmin.upsert({
+    where: { email },
+    create: { email, name: 'Platform Admin', passwordHash },
+    update: { passwordHash },
+  });
+  console.log(`Seed: super-admin de plataforma ${email}.`);
+}
+
 async function main(): Promise<void> {
   await seedRbac();
+  await seedPlans();
   await seedMarketplaces();
   await seedDemoUser();
+  await seedPlatformAdmin();
 }
 
 main()

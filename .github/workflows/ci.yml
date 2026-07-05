@@ -83,6 +83,7 @@ jobs:
           pnpm --filter @marketmind/kernel test
           pnpm --filter @marketmind/integration-core test
           pnpm --filter @marketmind/marketplace-core test
+          pnpm --filter @marketmind/dashboard-core test
           pnpm --filter @marketmind/architecture test
           pnpm --filter @marketmind/queue test
           pnpm --filter @marketmind/sdk-mercadolivre test

@@ -1,6 +1,6 @@
 import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { runWithTenant } from './tenant-context';
+import { runWithTenant } from '@marketmind/kernel';
 import type { AccessClaims } from '../../modules/iam/domain/ports/token-service.port';
 
 /**
@@ -13,7 +13,9 @@ export class TenantInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const request = context.switchToHttp().getRequest<{ user?: AccessClaims }>();
     const user = request.user;
-    if (!user) {
+    // Sem usuário OU sem companyId (ex.: admin de plataforma) → não há tenant: a
+    // cadeia segue sem contexto, mantendo o admin fora do isolamento por company.
+    if (!user || !user.companyId) {
       return next.handle();
     }
     return new Observable((subscriber) => {

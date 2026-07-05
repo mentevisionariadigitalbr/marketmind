@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaService } from '../../../../shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import { Company, TaxRegime } from '../../domain/entities/company.entity';
-import { CompanyRepository, CreateCompanyData } from '../../domain/ports/company.repository';
+import { CompanyRepository, CreateCompanyData, UpdateCompanyData } from '../../domain/ports/company.repository';
 
 @Injectable()
 export class PrismaCompanyRepository implements CompanyRepository {
@@ -21,6 +21,18 @@ export class PrismaCompanyRepository implements CompanyRepository {
   async findById(id: string): Promise<Company | null> {
     const row = await this.prisma.db.company.findUnique({ where: { id } });
     return row ? this.toEntity(row) : null;
+  }
+
+  async update(id: string, data: UpdateCompanyData): Promise<Company> {
+    const row = await this.prisma.db.company.update({
+      where: { id },
+      data: {
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.taxId !== undefined ? { taxId: data.taxId } : {}),
+        ...(data.taxRegime !== undefined ? { taxRegime: data.taxRegime } : {}),
+      },
+    });
+    return this.toEntity(row);
   }
 
   private toEntity(row: {

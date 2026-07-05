@@ -1,91 +1,139 @@
-import { getSession } from '@/lib/session';
-import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { getKpis, getTimeline, getTopProducts, getAbc, getAlerts, getInventory, type PeriodPreset } from '@/lib/dashboard';
+import { getForecast } from '@/lib/inventory';
+import { getCashflowProjection } from '@/lib/cashflow';
+import { getMarketplaceAccounts } from '@/lib/integrations';
+import { MetricCard, Card, EmptyState, Badge } from '@/components/dashboard/primitives';
+import { PeriodSelector } from '@/components/dashboard/period-selector';
+import { AttentionPanel } from '@/components/dashboard/attention-panel';
+import { LineChart, BarChart } from '@/components/dashboard/charts';
+import { formatBRL, formatPercent } from '@/lib/format';
 
-const KPIS: { label: string; hint: string }[] = [
-  { label: 'Receita Hoje', hint: 'R$' },
-  { label: 'Receita do Mês', hint: 'R$' },
-  { label: 'Lucro Líquido', hint: 'R$' },
-  { label: 'Pedidos', hint: 'un' },
-  { label: 'Ticket Médio', hint: 'R$' },
-  { label: 'ROI', hint: '%' },
-  { label: 'Margem', hint: '%' },
-  { label: 'Fluxo de Caixa', hint: 'R$' },
+export const dynamic = 'force-dynamic';
+
+const PERIODS = [
+  { value: '7d', label: '7 dias' },
+  { value: '15d', label: '15 dias' },
+  { value: '30d', label: '30 dias' },
+  { value: 'mtd', label: 'Mês' },
 ];
+const PERIOD_LABEL: Record<string, string> = { '7d': 'últimos 7 dias', '15d': 'últimos 15 dias', '30d': 'últimos 30 dias', mtd: 'mês atual' };
 
-function KpiCard({ label, hint }: { label: string; hint: string }) {
+export default async function OverviewPage({ searchParams }: { searchParams: Promise<{ preset?: string }> }) {
+  const sp = await searchParams;
+  const preset = (PERIODS.some((p) => p.value === sp.preset) ? sp.preset : '30d') as PeriodPreset;
+
+  const [overview, timeline, top, abc, alerts, inventory, forecast, cashflow, accounts] = await Promise.all([
+    getKpis(preset),
+    getTimeline(preset),
+    getTopProducts(preset, 5),
+    getAbc(preset),
+    getAlerts(preset),
+    getInventory(preset),
+    getForecast({ risk: 'critico' }),
+    getCashflowProjection(),
+    getMarketplaceAccounts(),
+  ]);
+
+  const attention = {
+    criticalReorder: (forecast ?? []).length,
+    criticalAlerts: alerts?.counts.critical ?? 0,
+    overduePayables: cashflow?.totals.overdueAmount ?? 0,
+    outOfStock: inventory?.productsWithoutStock ?? 0,
+  };
+  const lastSync = (accounts ?? [])
+    .map((a) => a.lastSyncedAt)
+    .filter((d): d is string => !!d)
+    .sort()
+    .at(-1);
+
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <p className="text-sm text-slate-500">{label}</p>
-      <p className="mt-2 text-2xl font-bold text-slate-300">— {hint}</p>
-    </div>
-  );
-}
-
-export default async function DashboardPage() {
-  const session = await getSession();
-  if (!session) redirect('/login');
-
-  return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-slate-800">Dashboard Executivo</h1>
-        <p className="text-sm text-slate-500">
-          {session.company.name} · {session.user.role}
-        </p>
+    <div className="space-y-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Dashboard Executivo</h1>
+          <p className="text-sm text-slate-500">
+            Saúde do negócio em tempo real — {PERIOD_LABEL[preset] ?? 'últimos 30 dias'}
+            {lastSync && (
+              <>
+                {' · '}
+                <Link href="/dashboard/settings/integrations" className="underline hover:text-slate-700">
+                  última sincronização {new Date(lastSync).toLocaleDateString('pt-BR')}
+                </Link>
+              </>
+            )}
+          </p>
+        </div>
+        <PeriodSelector basePath="/dashboard" current={preset} presets={PERIODS} />
       </div>
 
-      <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-        Conecte sua conta do Mercado Livre (Sprint 2) para alimentar os indicadores. Os KPIs abaixo
-        são calculados automaticamente a partir dos seus pedidos reais.
-      </div>
+      {overview && <AttentionPanel data={attention} />}
 
-      <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-          Indicadores
-        </h2>
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          {KPIS.map((kpi) => (
-            <KpiCard key={kpi.label} label={kpi.label} hint={kpi.hint} />
-          ))}
-        </div>
-      </section>
+      {!overview ? (
+        <EmptyState
+          title="Sem dados ainda"
+          description="Conecte sua conta do Mercado Livre e sincronize pedidos para ver os indicadores."
+        />
+      ) : (
+        <>
+          {overview.costCoveragePct < 1 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Lucro parcial: custos cadastrados em{' '}
+              <strong>{formatPercent(overview.costCoveragePct)}</strong> das vendas.{' '}
+              <Link href="/dashboard/costs" className="font-semibold underline">
+                Cadastrar custos
+              </Link>{' '}
+              para um lucro bruto completo.
+            </div>
+          )}
 
-      <section className="grid gap-4 md:grid-cols-2">
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="font-semibold text-slate-800">Sua empresa</h3>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Nome</dt>
-              <dd className="font-medium text-slate-800">{session.company.name}</dd>
+          <section className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+            {overview.kpis.map((kpi) => (
+              <MetricCard key={kpi.key} kpi={kpi} />
+            ))}
+          </section>
+
+          <section className="grid gap-6 lg:grid-cols-3">
+            <div className="lg:col-span-2">
+              <Card title="Receita por período">
+                {timeline && timeline.length > 0 ? (
+                  <LineChart points={timeline.map((t) => ({ label: t.bucket, value: t.revenue }))} />
+                ) : (
+                  <EmptyState title="Sem vendas no período" description="As vendas aparecerão aqui assim que houver pedidos." />
+                )}
+              </Card>
             </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">CNPJ</dt>
-              <dd className="font-medium text-slate-800">{session.company.taxId ?? '—'}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Regime</dt>
-              <dd className="font-medium text-slate-800">{session.company.taxRegime}</dd>
-            </div>
-          </dl>
-        </div>
-        <div className="rounded-xl border border-slate-200 bg-white p-5">
-          <h3 className="font-semibold text-slate-800">Seu acesso</h3>
-          <dl className="mt-3 space-y-2 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Usuário</dt>
-              <dd className="font-medium text-slate-800">{session.user.name}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">E-mail</dt>
-              <dd className="font-medium text-slate-800">{session.user.email}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-slate-500">Papel</dt>
-              <dd className="font-medium text-slate-800">{session.user.role}</dd>
-            </div>
-          </dl>
-        </div>
-      </section>
+            <Card title="Curva ABC">
+              {abc && abc.entries.length > 0 ? (
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <Badge tone="green">A: {abc.counts.A}</Badge>
+                    <Badge tone="amber">B: {abc.counts.B}</Badge>
+                    <Badge tone="slate">C: {abc.counts.C}</Badge>
+                  </div>
+                  <p className="text-sm text-slate-500">
+                    {abc.counts.A} produtos (classe A) concentram ~80% da receita.
+                  </p>
+                </div>
+              ) : (
+                <EmptyState title="Sem dados" description="Curva ABC requer vendas." />
+              )}
+            </Card>
+          </section>
+
+          <Card title="Top 5 produtos por receita">
+            {top && top.length > 0 ? (
+              <BarChart bars={top.map((p) => ({ label: p.title, value: p.revenue }))} money />
+            ) : (
+              <EmptyState title="Sem produtos vendidos" description="O ranking aparece após as primeiras vendas." />
+            )}
+          </Card>
+
+          <p className="text-right text-xs text-slate-400">
+            Receita total (top 5): {formatBRL((top ?? []).reduce((s, p) => s + p.revenue, 0))}
+          </p>
+        </>
+      )}
     </div>
   );
 }

@@ -11,6 +11,8 @@ export interface PublicUser {
   email: string;
   role: string;
   status: string;
+  /** ISO date quando o e-mail foi verificado; null se ainda não verificado. */
+  emailVerifiedAt: string | null;
 }
 
 export interface AuthResponse {
@@ -22,6 +24,8 @@ export interface AuthResponse {
 export interface MeResponse {
   user: PublicUser;
   company: { id: string; name: string; taxId: string | null; taxRegime: string };
+  /** Presente quando a sessão é uma impersonação do admin (somente leitura). */
+  impersonation?: { readOnly: boolean; by: string | null } | null;
 }
 
 export async function apiFetch(path: string, init?: RequestInit): Promise<Response> {

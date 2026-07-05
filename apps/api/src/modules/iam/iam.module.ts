@@ -2,11 +2,13 @@ import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 
-import { PrismaService } from '../../shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import { parseDurationMs } from '../../shared/util/duration';
+import { LegalModule } from '../legal/legal.module';
 
 import { AuthController } from './presentation/http/auth.controller';
 import { RolesController } from './presentation/http/roles.controller';
+import { CompanyController } from './presentation/http/company.controller';
 import { JwtAuthGuard } from './presentation/http/jwt-auth.guard';
 import { PermissionsGuard } from './presentation/http/permissions.guard';
 
@@ -17,12 +19,24 @@ import { GetMeUseCase } from './application/use-cases/get-me.use-case';
 import { LogoutUseCase } from './application/use-cases/logout.use-case';
 import { ListRolesUseCase } from './application/use-cases/list-roles.use-case';
 import { GoogleSignInUseCase } from './application/use-cases/google-sign-in.use-case';
+import { UpdateCompanyUseCase } from './application/use-cases/update-company.use-case';
+import { UpdateProfileUseCase } from './application/use-cases/update-profile.use-case';
+import { ChangePasswordUseCase } from './application/use-cases/change-password.use-case';
+import { ListUsersUseCase } from './application/use-cases/list-users.use-case';
+import { InviteMemberUseCase } from './application/use-cases/invite-member.use-case';
+import { AssignRoleUseCase } from './application/use-cases/assign-role.use-case';
+import { AcceptInviteUseCase } from './application/use-cases/accept-invite.use-case';
+import { ForgotPasswordUseCase } from './application/use-cases/forgot-password.use-case';
+import { ResetPasswordUseCase } from './application/use-cases/reset-password.use-case';
+import { VerifyEmailUseCase } from './application/use-cases/verify-email.use-case';
+import { RequestEmailVerificationUseCase } from './application/use-cases/request-email-verification.use-case';
 import { IssueTokensService } from './application/services/issue-tokens.service';
 import { REFRESH_TTL_MS } from './application/config-tokens';
 
 import { COMPANY_REPOSITORY } from './domain/ports/company.repository';
 import { USER_REPOSITORY } from './domain/ports/user.repository';
 import { REFRESH_TOKEN_REPOSITORY } from './domain/ports/refresh-token.repository';
+import { USER_TOKEN_REPOSITORY } from './domain/ports/user-token.repository';
 import { PASSWORD_HASHER } from './domain/ports/password-hasher.port';
 import { TOKEN_SERVICE } from './domain/ports/token-service.port';
 import { UNIT_OF_WORK } from './domain/ports/unit-of-work.port';
@@ -32,14 +46,15 @@ import { GOOGLE_VERIFIER } from './domain/ports/google-verifier.port';
 import { PrismaCompanyRepository } from './infrastructure/persistence/prisma-company.repository';
 import { PrismaUserRepository } from './infrastructure/persistence/prisma-user.repository';
 import { PrismaRefreshTokenRepository } from './infrastructure/persistence/prisma-refresh-token.repository';
+import { PrismaUserTokenRepository } from './infrastructure/persistence/prisma-user-token.repository';
 import { PrismaRbacRepository } from './infrastructure/persistence/prisma-rbac.repository';
 import { Argon2PasswordHasher } from './infrastructure/security/argon2-password-hasher';
 import { JwtTokenService } from './infrastructure/security/jwt-token.service';
 import { GoogleTokenInfoVerifier } from './infrastructure/security/google-tokeninfo-verifier';
 
 @Module({
-  imports: [JwtModule.register({})],
-  controllers: [AuthController, RolesController],
+  imports: [JwtModule.register({}), LegalModule],
+  controllers: [AuthController, RolesController, CompanyController],
   providers: [
     SignUpUseCase,
     SignInUseCase,
@@ -48,6 +63,17 @@ import { GoogleTokenInfoVerifier } from './infrastructure/security/google-tokeni
     LogoutUseCase,
     ListRolesUseCase,
     GoogleSignInUseCase,
+    UpdateCompanyUseCase,
+    UpdateProfileUseCase,
+    ChangePasswordUseCase,
+    ListUsersUseCase,
+    InviteMemberUseCase,
+    AssignRoleUseCase,
+    AcceptInviteUseCase,
+    ForgotPasswordUseCase,
+    ResetPasswordUseCase,
+    VerifyEmailUseCase,
+    RequestEmailVerificationUseCase,
     IssueTokensService,
     JwtAuthGuard,
     PermissionsGuard,
@@ -56,6 +82,7 @@ import { GoogleTokenInfoVerifier } from './infrastructure/security/google-tokeni
     { provide: COMPANY_REPOSITORY, useClass: PrismaCompanyRepository },
     { provide: USER_REPOSITORY, useClass: PrismaUserRepository },
     { provide: REFRESH_TOKEN_REPOSITORY, useClass: PrismaRefreshTokenRepository },
+    { provide: USER_TOKEN_REPOSITORY, useClass: PrismaUserTokenRepository },
     { provide: RBAC_REPOSITORY, useClass: PrismaRbacRepository },
     { provide: PASSWORD_HASHER, useClass: Argon2PasswordHasher },
     { provide: TOKEN_SERVICE, useClass: JwtTokenService },

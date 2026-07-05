@@ -1,7 +1,7 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaService } from '../src/shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import { PrismaAuditLogRepository } from '../src/shared/audit/prisma-audit-log.repository';
-import { runWithTenant } from '../src/shared/tenant/tenant-context';
+import { runWithTenant } from '@marketmind/kernel';
 
 const OWNER_URL =
   process.env.DATABASE_URL ??

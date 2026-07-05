@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import { AuditLogEntry, AuditLogRepository } from './audit-log.repository';
 
 @Injectable()

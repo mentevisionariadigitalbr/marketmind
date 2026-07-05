@@ -8,6 +8,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     name?: string;
     email?: string;
     password?: string;
+    acceptedTerms?: boolean;
   };
   const res = await apiFetch('/auth/signup', { method: 'POST', body: JSON.stringify(body) });
 

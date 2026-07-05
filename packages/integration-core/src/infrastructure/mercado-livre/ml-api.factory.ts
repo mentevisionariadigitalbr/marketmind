@@ -34,6 +34,7 @@ export class MercadoLivreApiFactoryAdapter implements MercadoLivreApiFactory {
           offset: params.offset,
           limit: params.limit,
           status: params.status,
+          sort: params.sort,
         });
         return result as unknown as MlOrderSearch;
       },

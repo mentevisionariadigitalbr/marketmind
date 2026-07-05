@@ -1,7 +1,6 @@
 import { Global, Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { TOKEN_CIPHER } from './token-cipher.port';
-import { AesGcmTokenCipher } from './aes-gcm-token-cipher';
+import { TOKEN_CIPHER, AesGcmTokenCipher } from '@marketmind/integration-core';
 
 @Global()
 @Module({

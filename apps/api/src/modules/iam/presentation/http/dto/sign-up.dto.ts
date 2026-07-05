@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
+import { Equals, IsBoolean, IsEmail, IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SignUpDto {
   @IsString()
@@ -19,4 +19,9 @@ export class SignUpDto {
   @MinLength(8)
   @MaxLength(128)
   password!: string;
+
+  // Aceite obrigatório dos Termos + Privacidade (precisa ser exatamente true).
+  @IsBoolean()
+  @Equals(true, { message: 'É necessário aceitar os Termos de Uso e a Política de Privacidade.' })
+  acceptedTerms!: boolean;
 }

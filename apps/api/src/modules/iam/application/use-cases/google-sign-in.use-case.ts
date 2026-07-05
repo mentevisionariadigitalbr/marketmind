@@ -10,11 +10,14 @@ import { RBAC_REPOSITORY, RbacRepository } from '../../domain/ports/rbac.reposit
 import { SYSTEM_ROLES } from '../../domain/permissions';
 import { User } from '../../domain/entities/user.entity';
 import { IssueTokensService, IssueContext } from '../services/issue-tokens.service';
+import { RecordLegalAcceptanceService } from '../../../legal/application/record-legal-acceptance.service';
 import { AuthResult } from '../dto/auth-result';
 import { ValidationError } from '../errors';
 
 export interface GoogleSignInInput extends IssueContext {
   idToken: string;
+  /** Aceite legal — exigido apenas quando o login do Google cria um usuário novo. */
+  acceptedTerms?: boolean;
 }
 
 @Injectable()
@@ -26,6 +29,7 @@ export class GoogleSignInUseCase {
     @Inject(USER_REPOSITORY) private readonly users: UserRepository,
     @Inject(RBAC_REPOSITORY) private readonly rbac: RbacRepository,
     private readonly issueTokens: IssueTokensService,
+    private readonly recordLegalAcceptance: RecordLegalAcceptanceService,
   ) {}
 
   async execute(input: GoogleSignInInput): Promise<AuthResult> {
@@ -36,7 +40,7 @@ export class GoogleSignInUseCase {
     const email = profile.email.trim().toLowerCase();
     const name = profile.name?.trim() || email.split('@')[0];
 
-    const user = await this.resolveUser(profile.googleId, email, name);
+    const user = await this.resolveUser(profile.googleId, email, name, input);
 
     const tokens = await this.issueTokens.issue(user, {
       userAgent: input.userAgent,
@@ -49,7 +53,12 @@ export class GoogleSignInUseCase {
     };
   }
 
-  private async resolveUser(googleId: string, email: string, name: string): Promise<User> {
+  private async resolveUser(
+    googleId: string,
+    email: string,
+    name: string,
+    ctx: GoogleSignInInput,
+  ): Promise<User> {
     // 1. Já existe conta vinculada ao Google → login direto.
     const byGoogle = await this.users.findByGoogleId(googleId);
     if (byGoogle) {
@@ -62,7 +71,10 @@ export class GoogleSignInUseCase {
       return this.users.attachGoogleId(byEmail.id, googleId);
     }
 
-    // 3. Primeiro acesso → cria empresa + usuário OWNER (cadastro automático).
+    // 3. Primeiro acesso → cadastro automático: exige aceite legal versionado.
+    if (!ctx.acceptedTerms) {
+      throw new ValidationError('É necessário aceitar os Termos de Uso e a Política de Privacidade.');
+    }
     return this.uow.runInTransaction(async () => {
       const company = await this.companies.create({ name: `Empresa de ${name}` });
       const created = await this.users.create({
@@ -73,6 +85,12 @@ export class GoogleSignInUseCase {
         role: 'OWNER',
       });
       await this.rbac.assignSystemRole(created.id, SYSTEM_ROLES.OWNER);
+      await this.recordLegalAcceptance.acceptAll({
+        userId: created.id,
+        companyId: company.id,
+        ip: ctx.ip ?? null,
+        userAgent: ctx.userAgent ?? null,
+      });
       return created;
     });
   }

@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaService } from '../src/shared/prisma/prisma.service';
+import { PrismaService } from '@marketmind/kernel';
 import { PrismaRbacRepository } from '../src/modules/iam/infrastructure/persistence/prisma-rbac.repository';
 import {
   PERMISSION_CATALOG,

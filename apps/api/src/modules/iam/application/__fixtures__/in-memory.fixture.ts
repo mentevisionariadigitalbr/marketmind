@@ -1,13 +1,24 @@
 import { randomUUID } from 'node:crypto';
 import { Company } from '../../domain/entities/company.entity';
 import { User } from '../../domain/entities/user.entity';
-import { CompanyRepository, CreateCompanyData } from '../../domain/ports/company.repository';
-import { CreateUserData, UserRepository } from '../../domain/ports/user.repository';
+import { CompanyRepository, CreateCompanyData, UpdateCompanyData } from '../../domain/ports/company.repository';
+import { CreateUserData, UserRepository, UserSummary } from '../../domain/ports/user.repository';
+import { UserRole } from '../../domain/entities/user.entity';
 import {
   CreateRefreshTokenData,
   RefreshTokenRecord,
   RefreshTokenRepository,
 } from '../../domain/ports/refresh-token.repository';
+import {
+  IssueTokenData,
+  UserTokenRepository,
+  UserTokenType,
+} from '../../domain/ports/user-token.repository';
+import {
+  LegalAcceptanceRecord,
+  LegalAcceptanceRepository,
+  RecordAcceptanceData,
+} from '../../../legal/domain/ports/legal-acceptance.repository';
 import { PasswordHasher } from '../../domain/ports/password-hasher.port';
 import { AccessClaims, TokenService } from '../../domain/ports/token-service.port';
 import { UnitOfWork } from '../../domain/ports/unit-of-work.port';
@@ -42,6 +53,20 @@ export class InMemoryCompanyRepository implements CompanyRepository {
   async findById(id: string): Promise<Company | null> {
     return this.items.find((c) => c.id === id) ?? null;
   }
+
+  async update(id: string, data: UpdateCompanyData): Promise<Company> {
+    const index = this.items.findIndex((c) => c.id === id);
+    const current = this.items[index].toJSON();
+    const updated = new Company({
+      ...current,
+      name: data.name ?? current.name,
+      taxId: data.taxId !== undefined ? data.taxId : current.taxId,
+      taxRegime: data.taxRegime ?? current.taxRegime,
+      updatedAt: new Date(),
+    });
+    this.items[index] = updated;
+    return updated;
+  }
 }
 
 export class InMemoryUserRepository implements UserRepository {
@@ -71,6 +96,7 @@ export class InMemoryUserRepository implements UserRepository {
       googleId,
       role: current.role,
       status: current.status,
+      emailVerifiedAt: current.emailVerifiedAt,
       createdAt: current.createdAt,
       updatedAt: new Date(),
     });
@@ -88,12 +114,76 @@ export class InMemoryUserRepository implements UserRepository {
       passwordHash: data.passwordHash ?? null,
       googleId: data.googleId ?? null,
       role: data.role ?? 'OWNER',
-      status: 'ACTIVE',
+      status: data.status ?? 'ACTIVE',
+      emailVerifiedAt: null,
       createdAt: now,
       updatedAt: now,
     });
     this.items.push(user);
     return user;
+  }
+
+  private readonly invites = new Map<string, { tokenHash: string; expiresAt: Date }>();
+
+  private replace(
+    userId: string,
+    patch: Partial<{ name: string; passwordHash: string | null; role: UserRole; status: 'ACTIVE' | 'INVITED' | 'DISABLED'; emailVerifiedAt: Date | null }>,
+  ): User {
+    const index = this.items.findIndex((u) => u.id === userId);
+    const c = this.items[index];
+    const updated = new User({
+      id: c.id,
+      companyId: c.companyId,
+      name: patch.name ?? c.name,
+      email: c.email,
+      passwordHash: patch.passwordHash !== undefined ? patch.passwordHash : c.passwordHash,
+      googleId: c.googleId,
+      role: patch.role ?? c.role,
+      status: patch.status ?? c.status,
+      emailVerifiedAt: patch.emailVerifiedAt !== undefined ? patch.emailVerifiedAt : c.emailVerifiedAt,
+      createdAt: c.createdAt,
+      updatedAt: new Date(),
+    });
+    this.items[index] = updated;
+    return updated;
+  }
+
+  async updateProfile(userId: string, data: { name: string }): Promise<User> {
+    return this.replace(userId, { name: data.name });
+  }
+
+  async updatePassword(userId: string, passwordHash: string): Promise<void> {
+    this.replace(userId, { passwordHash });
+  }
+
+  async markEmailVerified(userId: string): Promise<void> {
+    this.replace(userId, { emailVerifiedAt: new Date() });
+  }
+
+  async listByCompany(companyId: string): Promise<UserSummary[]> {
+    return this.items
+      .filter((u) => u.companyId === companyId)
+      .map((u) => ({ id: u.id, name: u.name, email: u.email, role: u.role, status: u.status }));
+  }
+
+  async updateRole(userId: string, role: UserRole): Promise<User> {
+    return this.replace(userId, { role });
+  }
+
+  async setInvite(userId: string, tokenHash: string, expiresAt: Date): Promise<void> {
+    this.invites.set(userId, { tokenHash, expiresAt });
+  }
+
+  async findInviteByTokenHash(tokenHash: string): Promise<{ userId: string; expiresAt: Date } | null> {
+    for (const [userId, inv] of this.invites) {
+      if (inv.tokenHash === tokenHash) return { userId, expiresAt: inv.expiresAt };
+    }
+    return null;
+  }
+
+  async activateFromInvite(userId: string, passwordHash: string): Promise<void> {
+    this.replace(userId, { passwordHash, status: 'ACTIVE' });
+    this.invites.delete(userId);
   }
 }
 
@@ -131,6 +221,43 @@ export class InMemoryRefreshTokenRepository implements RefreshTokenRepository {
         record.revokedAt = new Date();
       }
     }
+  }
+}
+
+/** Tokens de uso único em memória (reset/verify). */
+export class InMemoryUserTokenRepository implements UserTokenRepository {
+  readonly tokens: { userId: string; companyId: string; type: UserTokenType; tokenHash: string; expiresAt: Date; usedAt: Date | null }[] = [];
+
+  async issue(data: IssueTokenData): Promise<void> {
+    // Invalida anteriores do mesmo tipo.
+    for (let i = this.tokens.length - 1; i >= 0; i--) {
+      if (this.tokens[i].userId === data.userId && this.tokens[i].type === data.type) this.tokens.splice(i, 1);
+    }
+    this.tokens.push({ ...data, usedAt: null });
+  }
+
+  async consume(tokenHash: string, type: UserTokenType): Promise<{ userId: string } | null> {
+    const t = this.tokens.find(
+      (x) => x.tokenHash === tokenHash && x.type === type && x.usedAt === null && x.expiresAt.getTime() > Date.now(),
+    );
+    if (!t) return null;
+    t.usedAt = new Date();
+    return { userId: t.userId };
+  }
+}
+
+/** Aceites legais em memória (prova de consentimento nos testes). */
+export class InMemoryLegalAcceptanceRepository implements LegalAcceptanceRepository {
+  readonly items: (RecordAcceptanceData & { acceptedAt: Date })[] = [];
+
+  async record(data: RecordAcceptanceData): Promise<void> {
+    this.items.push({ ...data, acceptedAt: new Date() });
+  }
+
+  async listForUser(userId: string): Promise<LegalAcceptanceRecord[]> {
+    return this.items
+      .filter((i) => i.userId === userId)
+      .map((i) => ({ documentType: i.documentType, version: i.version, acceptedAt: i.acceptedAt }));
   }
 }
 
@@ -198,6 +325,10 @@ export class InMemoryRbacRepository implements RbacRepository {
     const set = this.assignments.get(userId) ?? new Set<string>();
     set.add(roleName);
     this.assignments.set(userId, set);
+  }
+
+  async setSystemRole(userId: string, roleName: string): Promise<void> {
+    this.assignments.set(userId, new Set([roleName]));
   }
 
   async listRoles(): Promise<RoleSummary[]> {

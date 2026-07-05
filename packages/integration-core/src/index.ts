@@ -16,6 +16,7 @@ export * from './application/mappers/ml-item.mapper';
 export * from './application/services/mercado-livre-session.service';
 export * from './application/use-cases/connect-mercado-livre.use-case';
 export * from './application/use-cases/get-ml-auth-url.use-case';
+export * from './application/use-cases/list-marketplace-accounts.use-case';
 export * from './application/use-cases/handle-ml-webhook.use-case';
 export * from './application/use-cases/sync-orders.use-case';
 export * from './application/use-cases/sync-products.use-case';

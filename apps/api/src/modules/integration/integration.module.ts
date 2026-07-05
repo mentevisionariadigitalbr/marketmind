@@ -3,11 +3,13 @@ import { ConfigService } from '@nestjs/config';
 import { JwtModule } from '@nestjs/jwt';
 
 import { IamModule } from '../iam/iam.module';
+import { BillingModule } from '../billing/billing.module';
 
 import { IntegrationController } from './presentation/http/integration.controller';
 
 import { GetMercadoLivreAuthUrlUseCase } from '@marketmind/integration-core';
 import { ConnectMercadoLivreUseCase } from '@marketmind/integration-core';
+import { ListMarketplaceAccountsUseCase } from '@marketmind/integration-core';
 import { SyncOrdersUseCase } from '@marketmind/integration-core';
 import { SyncProductsUseCase } from '@marketmind/integration-core';
 import { SyncVariationsUseCase } from '@marketmind/integration-core';
@@ -35,11 +37,12 @@ import { MercadoLivreApiFactoryAdapter } from '@marketmind/integration-core';
 import { OAuthStateService } from '@marketmind/integration-core';
 
 @Module({
-  imports: [IamModule, JwtModule.register({})],
+  imports: [IamModule, BillingModule, JwtModule.register({})],
   controllers: [IntegrationController],
   providers: [
     GetMercadoLivreAuthUrlUseCase,
     ConnectMercadoLivreUseCase,
+    ListMarketplaceAccountsUseCase,
     SyncOrdersUseCase,
     SyncProductsUseCase,
     SyncVariationsUseCase,

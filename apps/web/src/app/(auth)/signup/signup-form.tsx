@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Alert, Button, Input, Label } from '@/components/ui';
 import { GoogleButton } from '@/components/google-button';
@@ -8,6 +9,7 @@ import { GoogleButton } from '@/components/google-button';
 export function SignupForm() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [accepted, setAccepted] = useState(false);
   const [pending, startTransition] = useTransition();
 
   async function submitTo(url: string, body: unknown, dest: string) {
@@ -30,6 +32,10 @@ export function SignupForm() {
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!accepted) {
+      setError('É necessário aceitar os Termos e a Política de Privacidade.');
+      return;
+    }
     const form = new FormData(e.currentTarget);
     await submitTo(
       '/api/auth/signup',
@@ -38,6 +44,7 @@ export function SignupForm() {
         name: form.get('name'),
         email: form.get('email'),
         password: form.get('password'),
+        acceptedTerms: true,
       },
       '/onboarding',
     );
@@ -70,10 +77,32 @@ export function SignupForm() {
         />
         <p className="mt-1 text-xs text-slate-400">Mínimo de 8 caracteres.</p>
       </div>
-      <Button type="submit" disabled={pending}>
+      <label className="flex items-start gap-2 text-sm text-slate-600">
+        <input
+          type="checkbox"
+          checked={accepted}
+          onChange={(e) => setAccepted(e.target.checked)}
+          className="mt-0.5 h-4 w-4 rounded border-slate-300 text-brand focus:ring-brand"
+        />
+        <span>
+          Li e aceito os{' '}
+          <Link href="/legal/terms" target="_blank" className="font-medium text-brand hover:underline">Termos de Uso</Link>{' '}
+          e a{' '}
+          <Link href="/legal/privacy" target="_blank" className="font-medium text-brand hover:underline">Política de Privacidade</Link>.
+        </span>
+      </label>
+      <Button type="submit" disabled={pending || !accepted}>
         {pending ? 'Criando…' : 'Criar conta'}
       </Button>
-      <GoogleButton onCredential={(idToken) => submitTo('/api/auth/google', { idToken }, '/dashboard')} />
+      <GoogleButton
+        onCredential={(idToken) => {
+          if (!accepted) {
+            setError('É necessário aceitar os Termos e a Política de Privacidade.');
+            return;
+          }
+          void submitTo('/api/auth/google', { idToken, acceptedTerms: true }, '/dashboard');
+        }}
+      />
     </form>
   );
 }

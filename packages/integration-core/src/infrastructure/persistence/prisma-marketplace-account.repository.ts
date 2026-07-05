@@ -5,6 +5,7 @@ import {
   MarketplaceAccount,
   MarketplaceAccountRepository,
   MarketplaceAccountStatus,
+  MarketplaceAccountSummary,
   UpdateTokensData,
   UpsertAccountData,
 } from '../../domain/ports/marketplace-account.repository';
@@ -36,6 +37,24 @@ export class PrismaMarketplaceAccountRepository implements MarketplaceAccountRep
   async findById(id: string): Promise<MarketplaceAccount | null> {
     const row = await this.prisma.db.marketplaceAccount.findUnique({ where: { id } });
     return row ? this.toEntity(row) : null;
+  }
+
+  async listByCompany(companyId: string): Promise<MarketplaceAccountSummary[]> {
+    const rows = await this.prisma.db.marketplaceAccount.findMany({
+      where: { companyId },
+      orderBy: { createdAt: 'asc' },
+      include: { marketplace: { select: { code: true, name: true } } },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      marketplaceCode: r.marketplace.code,
+      marketplaceName: r.marketplace.name,
+      externalUserId: r.externalUserId,
+      nickname: r.nickname,
+      status: r.status as MarketplaceAccountStatus,
+      tokenExpiresAt: r.tokenExpiresAt,
+      lastSyncedAt: r.lastSyncedAt,
+    }));
   }
 
   async findByExternalUserId(externalUserId: string): Promise<MarketplaceAccount[]> {

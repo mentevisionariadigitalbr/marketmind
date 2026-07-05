@@ -15,6 +15,12 @@ const envSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(16),
   JWT_ACCESS_TTL: z.string().default('15m'),
   JWT_REFRESH_TTL: z.string().default('7d'),
+  // Admin de plataforma (Fase 7) — SEGREDO SEPARADO do JWT de tenant (fronteira de
+  // segurança). Sem ele, a área de admin fica indisponível. Seed do 1º admin opcional.
+  JWT_ADMIN_SECRET: z.string().min(16).optional(),
+  JWT_ADMIN_TTL: z.string().default('1h'),
+  PLATFORM_ADMIN_EMAIL: z.string().email().optional(),
+  PLATFORM_ADMIN_PASSWORD: z.string().min(8).optional(),
   API_PORT: z.coerce.number().int().positive().default(3333),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   // OAuth Google — audiência esperada do ID token (opcional até configurar o app).
@@ -25,6 +31,21 @@ const envSchema = z.object({
   ML_CLIENT_ID: z.string().optional(),
   ML_CLIENT_SECRET: z.string().optional(),
   ML_REDIRECT_URI: z.string().optional(),
+  // Rate limiting (Sprint 3.2). Janela em ms + limite global por IP.
+  THROTTLE_TTL_MS: z.coerce.number().int().positive().default(60_000),
+  THROTTLE_LIMIT: z.coerce.number().int().positive().default(300),
+  // Restrição do /metrics (Sprint 3.2). Se definido, exige Bearer <token>.
+  // Sem token, o acesso é liberado apenas de loopback/rede interna.
+  METRICS_TOKEN: z.string().optional(),
+  // E-mail transacional (Fase 4). Sem RESEND_API_KEY, usa NoopEmailSender.
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+  // Cobrança Stripe (Fase 5). Sem STRIPE_SECRET_KEY, usa NoopPaymentProvider
+  // (checkout/portal indisponíveis no dev). Price IDs por plano (test mode).
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+  STRIPE_PRICE_PRO: z.string().optional(),
+  STRIPE_PRICE_BUSINESS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;

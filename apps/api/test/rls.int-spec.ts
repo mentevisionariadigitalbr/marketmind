@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
-import { PrismaService } from '../src/shared/prisma/prisma.service';
-import { runWithTenant, TenantContext } from '../src/shared/tenant/tenant-context';
+import { PrismaService } from '@marketmind/kernel';
+import { runWithTenant, TenantContext } from '@marketmind/kernel';
 
 /**
  * Integration test (requires the dockerized Postgres + applied migrations):

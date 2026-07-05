@@ -1,4 +1,4 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import { Email } from '../../domain/value-objects/email.vo';
 import {
   COMPANY_REPOSITORY,
@@ -10,6 +10,8 @@ import { UNIT_OF_WORK, UnitOfWork } from '../../domain/ports/unit-of-work.port';
 import { RBAC_REPOSITORY, RbacRepository } from '../../domain/ports/rbac.repository';
 import { SYSTEM_ROLES } from '../../domain/permissions';
 import { IssueTokensService, IssueContext } from '../services/issue-tokens.service';
+import { RequestEmailVerificationUseCase } from './request-email-verification.use-case';
+import { RecordLegalAcceptanceService } from '../../../legal/application/record-legal-acceptance.service';
 import { AuthResult } from '../dto/auth-result';
 import { EmailAlreadyInUseError, ValidationError } from '../errors';
 
@@ -18,12 +20,18 @@ export interface SignUpInput extends IssueContext {
   name: string;
   email: string;
   password: string;
+  /** Aceite dos Termos de Uso e da Política de Privacidade (obrigatório). */
+  acceptedTerms: boolean;
+  /** Base do link de verificação de e-mail (montada no controller). */
+  verifyUrlBase?: string;
 }
 
 const MIN_PASSWORD_LENGTH = 8;
 
 @Injectable()
 export class SignUpUseCase {
+  private readonly logger = new Logger(SignUpUseCase.name);
+
   constructor(
     @Inject(UNIT_OF_WORK) private readonly uow: UnitOfWork,
     @Inject(COMPANY_REPOSITORY) private readonly companies: CompanyRepository,
@@ -31,6 +39,8 @@ export class SignUpUseCase {
     @Inject(PASSWORD_HASHER) private readonly hasher: PasswordHasher,
     @Inject(RBAC_REPOSITORY) private readonly rbac: RbacRepository,
     private readonly issueTokens: IssueTokensService,
+    private readonly requestEmailVerification: RequestEmailVerificationUseCase,
+    private readonly recordLegalAcceptance: RecordLegalAcceptanceService,
   ) {}
 
   async execute(input: SignUpInput): Promise<AuthResult> {
@@ -43,6 +53,9 @@ export class SignUpUseCase {
     }
     if (!input.companyName?.trim()) {
       throw new ValidationError('O nome da empresa é obrigatório.');
+    }
+    if (!input.acceptedTerms) {
+      throw new ValidationError('É necessário aceitar os Termos de Uso e a Política de Privacidade.');
     }
 
     const existing = await this.users.findByEmail(email);
@@ -63,6 +76,13 @@ export class SignUpUseCase {
       });
       // Quem cria a empresa é o dono: recebe o papel de sistema OWNER (RBAC).
       await this.rbac.assignSystemRole(created.id, SYSTEM_ROLES.OWNER);
+      // Aceite legal versionado (prova de consentimento) — na mesma transação.
+      await this.recordLegalAcceptance.acceptAll({
+        userId: created.id,
+        companyId: company.id,
+        ip: input.ip ?? null,
+        userAgent: input.userAgent ?? null,
+      });
       return created;
     });
 
@@ -70,6 +90,15 @@ export class SignUpUseCase {
       userAgent: input.userAgent,
       ip: input.ip,
     });
+
+    // Verificação de e-mail é não-bloqueante: nunca impede o cadastro.
+    if (input.verifyUrlBase) {
+      try {
+        await this.requestEmailVerification.execute({ userId: user.id, verifyUrlBase: input.verifyUrlBase });
+      } catch (err) {
+        this.logger.error(`Falha ao iniciar verificação de e-mail: ${(err as Error).message}`);
+      }
+    }
 
     return {
       user: user.toPublic(),
