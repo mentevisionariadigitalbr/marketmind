@@ -70,6 +70,9 @@ o sistema usa fallbacks no-op e o resto do app funciona normalmente. O **web** a
 > **Reset dos dados de demo:** os testes de integração limpam empresas; rode
 > `pnpm --filter @marketmind/api run db:seed && pnpm --filter @marketmind/api run db:seed:demo`
 > para repovoar.
+>
+> **Conta "god" (todas as funções):** `pnpm --filter @marketmind/api run db:seed:god`
+> cria/atualiza um OWNER com plano BUSINESS + acesso ao `/admin`, com dados populados.
 
 ## Estado atual do repositório
 

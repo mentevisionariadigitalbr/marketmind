@@ -16,7 +16,8 @@
     "prisma:migrate": "prisma migrate dev",
     "db:push": "prisma db push",
     "db:seed": "ts-node prisma/seed.ts",
-    "db:seed:demo": "ts-node prisma/demo-seed.ts"
+    "db:seed:demo": "ts-node prisma/demo-seed.ts",
+    "db:seed:god": "ts-node prisma/god-seed.ts"
   },
   "dependencies": {
     "@marketmind/dashboard-core": "workspace:*",
